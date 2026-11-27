@@ -1,0 +1,49 @@
+# Illustrative model selection configuration.
+# Do not put API keys in this file. Set secrets in the deployment environment.
+# These examples are not a verified live catalog.
+
+selection:
+  # Required. No implicit or random default is permitted.
+  provider: deepseek
+  model_id: deepseek-flash
+  operation: hosted_inference
+  fallback:
+    enabled: false
+    ordered_candidates: []
+
+providers:
+  deepseek:
+    protocol: openai-compatible
+    base_url: https://api.deepseek.com
+    api_key_env: DEEPSEEK_API_KEY
+    discovery:
+      enabled: true
+      endpoint: /models
+
+  moonshot:
+    protocol: openai-compatible
+    base_url: https://api.moonshot.ai/v1
+    api_key_env: MOONSHOT_API_KEY
+    discovery:
+      enabled: true
+      endpoint: /models
+
+  huggingface:
+    protocol: transformers
+    # For local inference/fine-tuning, use an exact model ID and pin a
+    # revision (commit hash) once selected and verified.
+    model_id: Qwen/Qwen3-4B-Base
+    revision: REPLACE_WITH_VERIFIED_COMMIT
+    operation_support:
+      hosted_inference: false
+      local_inference: true
+      fine_tuning: true
+      weight_export: requires_license_review
+
+# A real run must record:
+# - selected provider and model ID
+# - immutable revision or hosted provider identifier
+# - operation and runtime/adapter versions
+# - capability/terms review state
+# - catalog discovery timestamp (for hosted models)
+# - benchmark and dataset versions
