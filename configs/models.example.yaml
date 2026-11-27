@@ -1,11 +1,12 @@
-# Illustrative model selection configuration.
-# Do not put API keys in this file. Set secrets in the deployment environment.
-# These examples are not a verified live catalog.
+# Illustrative, user-supplied model selection configuration.
+# Never store API keys here. Inject credentials through environment variables.
+# Model identifiers are intentionally placeholders: populate them from the
+# provider's current model catalog and review each model's actual capabilities.
 
 selection:
-  # Required. No implicit or random default is permitted.
-  provider: deepseek
-  model_id: deepseek-flash
+  # All fields are required at run time. No implicit or random default.
+  provider: PROVIDER_ID
+  model_id: EXACT_PROVIDER_MODEL_ID
   operation: hosted_inference
   fallback:
     enabled: false
@@ -30,20 +31,20 @@ providers:
 
   huggingface:
     protocol: transformers
-    # For local inference/fine-tuning, use an exact model ID and pin a
-    # revision (commit hash) once selected and verified.
-    model_id: Qwen/Qwen3-4B-Base
-    revision: REPLACE_WITH_VERIFIED_COMMIT
+    # Use an exact repository ID and immutable commit hash after verifying
+    # architecture support, model terms, and local hardware requirements.
+    model_id: HF_NAMESPACE/HF_MODEL_REPOSITORY
+    revision: IMMUTABLE_COMMIT_HASH
     operation_support:
-      hosted_inference: false
-      local_inference: true
-      fine_tuning: true
+      hosted_inference: unknown_until_verified
+      local_inference: unknown_until_verified
+      fine_tuning: unknown_until_verified
       weight_export: requires_license_review
 
-# A real run must record:
-# - selected provider and model ID
+# Each real experiment must record:
+# - selected provider and exact model ID
 # - immutable revision or hosted provider identifier
 # - operation and runtime/adapter versions
-# - capability/terms review state
-# - catalog discovery timestamp (for hosted models)
+# - capability and terms review state
+# - provider catalog discovery timestamp (where available)
 # - benchmark and dataset versions

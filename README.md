@@ -1,41 +1,54 @@
 # AgroGuardAI LLM Foundation
 
+[![CI](https://github.com/mohammerd/agroguardai-llm-foundation/actions/workflows/ci.yml/badge.svg)](https://github.com/mohammerd/agroguardai-llm-foundation/actions/workflows/ci.yml)
+
 Research infrastructure for building and evaluating safer agricultural language models, with an initial focus on Nigerian and other underrepresented African languages.
 
-AgroGuardAI is not a generic chatbot wrapper. The project aims to build a reproducible agricultural AI foundation: governed datasets, transparent model experiments, language-specific evaluation, and safety controls for high-impact agronomic advice.
+AgroGuardAI is not a generic chatbot wrapper. The project is intended to combine a governed agricultural data foundation, model-agnostic execution, language-specific evaluation, and safety controls for high-impact agronomic advice.
 
 ## Project status
 
-**Early foundation / migration in progress.** This repository is being established as the clean public home for the project. The legacy research repository is `mohammerd/agroguardai-llm`. No legacy datasets, model weights, or training results are considered migrated or cleared for redistribution until they have passed the documented provenance, privacy, licensing, and quality checks.
+**Early research foundation — not production-ready.** The public repository currently contains the package scaffold, governance documentation, model-selection policy, collaboration templates, and CI/security workflows. Provider adapters, model execution, dataset pipelines, and agricultural safety enforcement are planned but not yet implemented.
 
-## Principles
+The legacy research repository is `mohammerd/agroguardai-llm`. No legacy datasets, model weights, or training results have been migrated or cleared for redistribution. The old repository remains the source archive during the migration review.
 
-- **Evidence before advice:** distinguish sourced facts, uncertain suggestions, and cases requiring local expert help.
-- **Language inclusion:** evaluate each supported language independently; do not infer local-language quality from English scores.
-- **Safety first:** unsafe pesticide, dosage, disease-treatment, and other high-impact recommendations require special review and conservative behavior.
-- **Reproducibility:** record exact base-model revisions, data releases, configs, code versions, seeds, and evaluation results.
-- **Responsible data release:** publish only records with a documented right to redistribute; retain review labels and never equate public availability with training approval.
-- **Open research:** publish code and documentation where possible, while respecting data rights, consent, privacy, and upstream model licenses.
-- **Explicit model choice:** users select the provider and exact model for each operation. No random model selection or silent provider substitution is allowed.
+## Design principles
 
-## Repository map
+- **Evidence before advice:** distinguish sourced facts, uncertainty, and cases requiring local expert help.
+- **Language inclusion:** evaluate each language independently; do not infer local-language quality from English scores.
+- **Safety first:** high-impact advice about chemicals, dosages, disease treatment, and animal health requires heightened review.
+- **Reproducibility:** record exact model/data revisions, configs, code commits, seeds, dependencies, hardware, and evaluation methods.
+- **Responsible data release:** document source, rights, consent, privacy, and review labels. Public availability does not imply training approval.
+- **Explicit model choice:** users select the provider and exact model ID. No random selection or silent provider substitution.
+- **Model portability:** separate hosted inference from local inference and fine-tuning. API access does not imply downloadable weights or permission to redistribute them.
 
-- `src/agroguardai/` — reusable data, training, inference, evaluation, and safety modules.
-- `data/` — schemas, source metadata, annotation guidance, and approved-to-share datasets.
-- `configs/` — versioned experiment configurations.
-- `docs/` — governance, migration, and evaluation protocols.
-- `tests/` — automated validation and regression tests.
-- `reports/` — reproducible evaluation reports and release notes.
+## Model support
 
-## Data and model availability
+The target registry is extensible and is intended to include providers and model families such as DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, and other supported models. A model is selectable only when an adapter and its capabilities are implemented and validated. See [Model Registry](docs/MODEL_REGISTRY.md).
 
-No dataset or model weights are currently released from this repository. Dataset publication and training eligibility are separate decisions. See [Data governance](docs/DATA_GOVERNANCE.md) before contributing or using data.
+## Project documentation
 
-## Model support and selection
+- [Architecture](docs/ARCHITECTURE.md) — target system boundaries and request flow.
+- [Roadmap](docs/ROADMAP.md) — evidence-gated project milestones.
+- [Data Governance](docs/DATA_GOVERNANCE.md) — publication versus training eligibility.
+- [Research Policy](docs/RESEARCH_POLICY.md) — claim and evaluation standards.
+- [Reproducibility](docs/REPRODUCIBILITY.md) — experiment manifest requirements.
+- [Model Registry](docs/MODEL_REGISTRY.md) — explicit model/provider selection.
+- [Model Benchmark Protocol](docs/BASE_MODEL_BENCHMARK.md) — candidate comparison methodology.
+- [Migration Plan](docs/MIGRATION_PLAN.md) — controlled migration from the legacy repository.
+- [Model Card Template](docs/templates/MODEL_CARD_TEMPLATE.md) — documentation required for model releases.
+- [Dataset Card Template](docs/templates/DATASET_CARD_TEMPLATE.md) — documentation required for dataset releases.
+- [Experiment Review Template](docs/templates/EXPERIMENT_REVIEW_TEMPLATE.md) — independent experiment review record.
+- [Changelog](CHANGELOG.md) — documented project changes.
 
-The architecture is intended to support a growing catalog of model providers and families, including DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, and other compatible models. Support depends on the provider interface, runtime, model capabilities, and terms.
+## Repository layout
 
-Hosted inference and local fine-tuning are separate capabilities: an API-accessible model is not automatically downloadable or fine-tunable. Users must select the provider and model explicitly. Fallback is off unless a user configures an ordered fallback list. See [Model registry and explicit selection](docs/MODEL_REGISTRY.md) and [Base-model benchmark protocol](docs/BASE_MODEL_BENCHMARK.md).
+- `src/agroguardai/` — reusable Python package.
+- `configs/` — example model and experiment configurations.
+- `data/` — schemas, source metadata, and annotation guidance; no legacy dataset is released yet.
+- `docs/` — architecture, governance, evaluation, and research policies.
+- `tests/` — automated validation.
+- `.github/` — CI, CodeQL, Dependabot, issue forms, and contribution templates.
 
 ## Development
 
@@ -44,16 +57,17 @@ Python 3.10+ is required.
 ```bash
 python -m pip install -e ".[dev]"
 pytest
+ruff check .
 ```
 
 ## Safety notice
 
 This is a research project, not a certified agronomic advisory service. Model outputs can be wrong and must not be treated as a substitute for qualified local agronomists, product labels, or official agricultural guidance. Never use an unvalidated model output as the sole basis for pesticide application, chemical dosage, or other potentially harmful action.
 
-## Contributing
+## Contributing and security
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md), [data contribution guidance](data/CONTRIBUTING.md), and [SECURITY.md](SECURITY.md) before opening a contribution.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Please read the [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md) before participating. Cite the project using [CITATION.cff](CITATION.cff).
 
 ## License
 
-Code licensing and data/model licensing may differ. The repository license applies only to files that the project has the right to license. Dataset and model releases will carry their own explicit terms and provenance.
+The software source code is licensed under Apache-2.0. Dataset releases, model weights, and third-party materials have separate terms and must not be assumed to share the code license. See each release's documentation.

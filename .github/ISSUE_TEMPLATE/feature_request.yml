@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a scoped improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or research need
+      description: What limitation does this address, and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the smallest useful implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and alternatives
+      description: Link papers, standards, examples, or alternative approaches.
+    validations:
+      required: false
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Main area
+      options:
+        - Model provider or runtime
+        - Data governance
+        - Evaluation and benchmarks
+        - Agricultural safety
+        - Developer experience
+        - Documentation
+    validations:
+      required: true
