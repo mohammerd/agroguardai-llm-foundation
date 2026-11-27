@@ -16,6 +16,7 @@ AgroGuardAI is not a generic chatbot wrapper. The project aims to build a reprod
 - **Reproducibility:** record exact base-model revisions, data releases, configs, code versions, seeds, and evaluation results.
 - **Responsible data release:** publish only records with a documented right to redistribute; retain review labels and never equate public availability with training approval.
 - **Open research:** publish code and documentation where possible, while respecting data rights, consent, privacy, and upstream model licenses.
+- **Explicit model choice:** users select the provider and exact model for each operation. No random model selection or silent provider substitution is allowed.
 
 ## Repository map
 
@@ -30,6 +31,12 @@ AgroGuardAI is not a generic chatbot wrapper. The project aims to build a reprod
 
 No dataset or model weights are currently released from this repository. Dataset publication and training eligibility are separate decisions. See [Data governance](docs/DATA_GOVERNANCE.md) before contributing or using data.
 
+## Model support and selection
+
+The architecture is intended to support a growing catalog of model providers and families, including DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, and other compatible models. Support depends on the provider interface, runtime, model capabilities, and terms.
+
+Hosted inference and local fine-tuning are separate capabilities: an API-accessible model is not automatically downloadable or fine-tunable. Users must select the provider and model explicitly. Fallback is off unless a user configures an ordered fallback list. See [Model registry and explicit selection](docs/MODEL_REGISTRY.md) and [Base-model benchmark protocol](docs/BASE_MODEL_BENCHMARK.md).
+
 ## Development
 
 Python 3.10+ is required.
@@ -38,10 +45,6 @@ Python 3.10+ is required.
 python -m pip install -e ".[dev]"
 pytest
 ```
-
-## Base-model selection
-
-Qwen and Llama are candidates, not settled choices. Selection will follow the documented multilingual agricultural benchmark and license review in [Base-model benchmark protocol](docs/BASE_MODEL_BENCHMARK.md).
 
 ## Safety notice
 
