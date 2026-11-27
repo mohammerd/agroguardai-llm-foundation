@@ -8,7 +8,7 @@ AgroGuardAI is not a generic chatbot wrapper. The project is intended to combine
 
 ## Project status
 
-**Early research foundation — not production-ready.** The public repository currently contains the package scaffold, governance documentation, model-selection policy, and initial CI. Provider adapters, model execution, dataset pipelines, and agricultural safety enforcement are planned but not yet implemented.
+**Early research foundation — not production-ready.** The public repository currently contains the package scaffold, governance documentation, model-selection policy, collaboration templates, and CI/security workflows. Provider adapters, model execution, dataset pipelines, and agricultural safety enforcement are planned but not yet implemented.
 
 The legacy research repository is `mohammerd/agroguardai-llm`. No legacy datasets, model weights, or training results have been migrated or cleared for redistribution. The old repository remains the source archive during the migration review.
 
@@ -36,6 +36,10 @@ The target registry is extensible and is intended to include providers and model
 - [Model Registry](docs/MODEL_REGISTRY.md) — explicit model/provider selection.
 - [Model Benchmark Protocol](docs/BASE_MODEL_BENCHMARK.md) — candidate comparison methodology.
 - [Migration Plan](docs/MIGRATION_PLAN.md) — controlled migration from the legacy repository.
+- [Model Card Template](docs/templates/MODEL_CARD_TEMPLATE.md) — documentation required for model releases.
+- [Dataset Card Template](docs/templates/DATASET_CARD_TEMPLATE.md) — documentation required for dataset releases.
+- [Experiment Review Template](docs/templates/EXPERIMENT_REVIEW_TEMPLATE.md) — independent experiment review record.
+- [Changelog](CHANGELOG.md) — documented project changes.
 
 ## Repository layout
 
@@ -44,7 +48,7 @@ The target registry is extensible and is intended to include providers and model
 - `data/` — schemas, source metadata, and annotation guidance; no legacy dataset is released yet.
 - `docs/` — architecture, governance, evaluation, and research policies.
 - `tests/` — automated validation.
-- `.github/` — CI, security scanning, issue forms, and contribution templates.
+- `.github/` — CI, CodeQL, Dependabot, issue forms, and contribution templates.
 
 ## Development
 
