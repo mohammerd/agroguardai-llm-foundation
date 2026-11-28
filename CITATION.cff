@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "Please cite AgroGuardAI LLM Foundation when using or building on this research software."
 title: "AgroGuardAI LLM Foundation"
 type: software
-version: 0.3.1
+version: 0.4.0
 authors:
   - family-names: Zakari
     given-names: Muhammad
