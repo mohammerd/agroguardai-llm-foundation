@@ -1,6 +1,7 @@
 import pytest
 
 from agroguardai.errors import (
+    ConfigurationError,
     DuplicateModelError,
     ModelTermsError,
     ModelUnavailableError,
@@ -21,6 +22,7 @@ def descriptor(
     terms_status: TermsStatus = TermsStatus.REVIEWED,
     available: bool = True,
 ) -> ModelDescriptor:
+    terms_reviewed = terms_status in {TermsStatus.REVIEWED, TermsStatus.RESTRICTED}
     return ModelDescriptor(
         provider_id=provider_id,
         model_id=model_id,
@@ -28,6 +30,8 @@ def descriptor(
         operations=operations
         or frozenset({Operation.LOCAL_INFERENCE, Operation.FINE_TUNING}),
         terms_status=terms_status,
+        terms_url="https://example.org/model-terms" if terms_reviewed else None,
+        terms_reviewed_at="2026-11-28T12:00:00Z" if terms_reviewed else None,
         available=available,
     )
 
@@ -104,6 +108,39 @@ def test_restricted_model_cannot_be_used():
 
     with pytest.raises(ModelTermsError, match="restricted"):
         registry.resolve(selection())
+
+
+def test_reviewed_terms_require_an_https_source_and_timezone_aware_timestamp():
+    with pytest.raises(ConfigurationError, match="terms_url and terms_reviewed_at"):
+        ModelDescriptor(
+            provider_id="provider",
+            model_id="model",
+            display_name="Model",
+            operations=frozenset({Operation.FINE_TUNING}),
+            terms_status=TermsStatus.REVIEWED,
+        )
+
+    with pytest.raises(ConfigurationError, match="HTTPS URL"):
+        ModelDescriptor(
+            provider_id="provider",
+            model_id="model",
+            display_name="Model",
+            operations=frozenset({Operation.FINE_TUNING}),
+            terms_status=TermsStatus.REVIEWED,
+            terms_url="http://example.org/license",
+            terms_reviewed_at="2026-11-28T12:00:00Z",
+        )
+
+    with pytest.raises(ConfigurationError, match="timezone offset"):
+        ModelDescriptor(
+            provider_id="provider",
+            model_id="model",
+            display_name="Model",
+            operations=frozenset({Operation.FINE_TUNING}),
+            terms_status=TermsStatus.REVIEWED,
+            terms_url="https://example.org/license",
+            terms_reviewed_at="2026-11-28T12:00:00",
+        )
 
 
 def test_duplicate_registration_does_not_overwrite():
