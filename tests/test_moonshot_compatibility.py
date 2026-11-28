@@ -3,7 +3,14 @@ import json
 
 import httpx
 
-from agroguardai import OpenAICompatibleAdapter
+from agroguardai import (
+    ChatMessage,
+    GenerationRequest,
+    Modality,
+    ModelSelection,
+    OpenAICompatibleAdapter,
+    Operation,
+)
 
 
 def run(coroutine):
@@ -48,12 +55,8 @@ def test_moonshot_catalog_can_be_explicitly_treated_as_chat_completions_catalog(
         assert len(models) == 1
         assert models[0].model_id == "kimi-k3.1-pro"
         assert models[0].context_window == 1000000
-        assert models[0].input_modalities == frozenset({__import__(
-            "agroguardai"
-        ).Modality.TEXT})
-        assert models[0].output_modalities == frozenset({__import__(
-            "agroguardai"
-        ).Modality.TEXT})
+        assert models[0].input_modalities == frozenset({Modality.TEXT})
+        assert models[0].output_modalities == frozenset({Modality.TEXT})
 
     run(scenario())
 
@@ -153,8 +156,6 @@ def test_moonshot_chat_completion_uses_max_completion_tokens():
                 max_output_tokens_field="max_completion_tokens",
                 client=client,
             )
-            from agroguardai import ChatMessage, GenerationRequest, ModelSelection, Operation
-
             request = GenerationRequest(
                 selection=ModelSelection(
                     provider_id="moonshot",
