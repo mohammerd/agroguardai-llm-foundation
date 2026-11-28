@@ -381,7 +381,9 @@ class OpenAICompatibleAdapter:
 
     @staticmethod
     def _advertises_text(modalities: Any) -> bool:
-        return isinstance(modalities, list) and "text" in modalities
+        if not isinstance(modalities, (list, tuple, set, frozenset)):
+            return False
+        return "text" in modalities or Modality.TEXT in modalities
 
     @staticmethod
     def _context_window(item: Mapping[str, Any]) -> int | None:
