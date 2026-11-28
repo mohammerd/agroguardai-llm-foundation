@@ -41,5 +41,41 @@ class ModelTermsError(RegistryError):
     """Raised when model terms have not been reviewed or prohibit an operation."""
 
 
-class ProviderResponseMismatchError(AgroGuardAIError):
+class ProviderError(AgroGuardAIError):
+    """Base class for provider communication and protocol failures."""
+
+
+class ProviderRequestMismatchError(ProviderError):
+    """Raised when an adapter is asked to execute for a different provider."""
+
+
+class ProviderAuthenticationError(ProviderError):
+    """Raised when a provider rejects the supplied credentials."""
+
+
+class ProviderRateLimitError(ProviderError):
+    """Raised when a provider rate-limits a request."""
+
+
+class ProviderTimeoutError(ProviderError):
+    """Raised when a provider request times out."""
+
+
+class ProviderConnectionError(ProviderError):
+    """Raised when a provider cannot be reached."""
+
+
+class ProviderUnavailableError(ProviderError):
+    """Raised when a provider returns a server-side failure."""
+
+
+class ProviderRequestError(ProviderError):
+    """Raised when a provider rejects a request for a non-authentication reason."""
+
+
+class ProviderProtocolError(ProviderError):
+    """Raised when a provider response does not match the expected API schema."""
+
+
+class ProviderResponseMismatchError(ProviderError):
     """Raised when a provider returns a model other than the one explicitly selected."""

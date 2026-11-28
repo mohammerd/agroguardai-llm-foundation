@@ -4,7 +4,7 @@
 
 AgroGuardAI is model-agnostic. Users choose the exact provider and model for each operation. The system must never silently select a random model, substitute a different provider, or switch models because one is unavailable.
 
-The catalog may include DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, and other providers or model families. This is an extensible catalog, not a promise that every model supports every operation or is already integrated.
+The catalog may include DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, OpenAI, Anthropic, and other providers or model families. This is an extensible catalog, not a promise that every model supports every operation or is already integrated.
 
 ## Implemented core
 
@@ -17,16 +17,19 @@ The Python package provides:
 - Strict YAML selection loading through `load_selection_config` and PyYAML's `safe_load`.
 - An opt-in ordered fallback policy. Fallback is disabled by default; candidates must be explicitly listed and are validated before an executor can use them.
 - A shared `ProviderAdapter` protocol and response-identity validation to reject a provider response that names a different model.
+- A generic `OpenAICompatibleAdapter` for text-only hosted model discovery and chat completions.
 
-The registry is currently an in-memory metadata catalogue. There are no concrete hosted API or local-runtime adapters yet, and it does not perform model discovery or inference itself.
+The registry is currently an in-memory metadata catalogue. The generic adapter does not cover every provider-specific feature and does not implement local inference, fine-tuning, streaming, tools, embeddings, or multimodal requests.
 
-## Two different model paths
+## Hosted inference and local model paths
 
 ### Hosted inference
 
-A provider hosts the model and exposes it through an API. The user selects the provider and exact model ID; credentials are supplied through server-side environment variables or a secrets manager.
+A provider hosts the model and exposes it through an API. The user selects the provider and exact model ID; credentials are supplied through environment variables or a secrets manager.
 
-A provider may expose an OpenAI-compatible interface, but compatibility must be verified per endpoint and capability. A common request format does not guarantee identical tool calling, multimodal support, error behavior, rate limits, or model semantics.
+The generic adapter implements a subset of the OpenAI-compatible protocol: model-list discovery and text chat completions. Its documented example configurations are DeepSeek and OpenRouter. These integrations use different API base URL conventions, so the base URL is configured independently for each provider. Provider model IDs are fetched from the catalog, not guessed or hard-coded.
+
+See [Provider Adapters](PROVIDER_ADAPTERS.md) for endpoint references and examples.
 
 ### Local inference and fine-tuning
 
@@ -47,15 +50,13 @@ Each catalog entry should declare verified information where available:
 
 When terms status is `reviewed` or `restricted`, the current `ModelDescriptor` requires an HTTPS `terms_url` and timezone-aware ISO 8601 `terms_reviewed_at`. A bare status flag is rejected. This is an auditable metadata requirement, not legal advice; maintainers must still assess the actual terms and intended use.
 
-Additional discovery metadata such as immutable model revision, provider endpoint, model family, catalog timestamp, and reviewer/process record should be recorded by concrete provider integrations as they are implemented. Unknown properties remain unknown; do not invent capabilities or license permissions.
-
 Fine-tuning and weight export are rejected unless terms status is reviewed. A model marked restricted is rejected for all operations. Capability declarations must be backed by provider documentation or a local runtime check.
 
 ## Selection and fallback rules
 
 1. A request must identify a provider, exact model ID, and operation.
 2. Missing model selection is a configuration error. There is no random or implicit default.
-3. An unknown provider or model returns a typed error. The registry never searches for a "similar" model.
+3. An unknown provider or model returns a typed error. The registry never searches for a similar model.
 4. An unavailable model or unsupported operation returns an error.
 5. Fallback is disabled by default. If enabled, the user must supply an ordered list. Every candidate is resolved against the registry before execution. The current package validates that order; it does not yet execute inference or fallback.
 6. A provider response must identify the same provider/model pair that was requested. A mismatch raises `ProviderResponseMismatchError`.
@@ -69,7 +70,9 @@ A concrete adapter implements `ProviderAdapter`:
 - `discover_models()`: returns current `ModelDescriptor` records;
 - `generate(request)`: executes the explicit `GenerationRequest` and returns a normalized `GenerationResponse`.
 
-Adapters must report the model actually used, preserve the requested model ID, avoid credential logging, and raise actionable errors instead of switching providers. The execution layer must call `validate_provider_response` before returning output to a caller.
+The generic OpenAI-compatible adapter registers only models whose model catalog explicitly advertises text input and text output. It sends the exact selected model ID to the provider, returns typed errors, and verifies the provider's returned model ID. The caller must resolve the selection through `ModelRegistry` before calling the adapter.
+
+Adapters must preserve the requested model ID, avoid credential logging, and raise actionable errors instead of switching providers.
 
 ## Model suitability is a separate question
 

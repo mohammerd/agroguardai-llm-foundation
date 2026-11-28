@@ -8,7 +8,7 @@ AgroGuardAI is not a generic chatbot wrapper. The project combines a governed ag
 
 ## Project status
 
-**Early research infrastructure — not production-ready.** The repository now includes a tested model registry, typed model/operation metadata, strict YAML selection configuration, an explicit provider-adapter contract, and exact-response validation. No concrete hosted or local provider adapter is released yet, and no legacy dataset or model weight has been migrated or cleared for redistribution.
+**Early research infrastructure — not production-ready.** The repository includes a tested model registry, strict YAML selection configuration, a provider-adapter protocol, a generic OpenAI-compatible hosted text adapter, and mocked integration tests. No live provider smoke tests, local runtime, training pipeline, dataset release, or agricultural safety enforcement are claimed yet.
 
 The legacy research repository is `mohammerd/agroguardai-llm`. It remains unchanged as the source archive during migration review.
 
@@ -24,11 +24,13 @@ The legacy research repository is `mohammerd/agroguardai-llm`. It remains unchan
 
 ## Model support
 
-The registry is designed to support multiple providers and model families, including DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, and other compatible models. A model is selectable only after its exact provider/model ID and supported operations are registered. Live discovery and inference integrations are still under development; the project does not claim that all named providers are currently connected. See [Model Registry](docs/MODEL_REGISTRY.md).
+The registry is designed to support multiple providers and model families, including DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, OpenAI, Anthropic, and other providers. A model is selectable only after its exact provider/model ID and supported operation have been registered.
 
-## Core API (implemented)
+The first live-adapter implementation is a generic OpenAI-compatible text adapter. It is documented and tested with DeepSeek-style and OpenRouter-style model catalogs and chat-completions responses. This does not mean every model in those catalogs has been independently smoke-tested. Other providers require endpoint compatibility checks and integration tests. See [Provider Adapters](docs/PROVIDER_ADAPTERS.md).
 
-The registry and selection contracts can be used without paid API credentials:
+## Core API: model registry
+
+The registry can be used without paid API credentials:
 
 ```python
 from agroguardai import ModelDescriptor, ModelRegistry, ModelSelection, Operation, TermsStatus
@@ -56,16 +58,74 @@ selected = registry.resolve(
 print(selected.model_id)
 ```
 
-This validates metadata and selection. It does not download weights, call a provider, or run inference. Concrete adapters will be added through the shared `ProviderAdapter` protocol. A model cannot be marked reviewed or restricted without an HTTPS terms source and a timezone-aware review timestamp.
+This validates metadata and selection. It does not download weights or run local inference.
+
+## Core API: hosted inference
+
+The generic adapter supports text-only hosted inference through an OpenAI-compatible chat-completions API. Set the key in the runtime environment, not in source code or committed YAML.
+
+```bash
+export DEEPSEEK_API_KEY="your-key"
+```
+
+```python
+import asyncio
+
+from agroguardai import (
+    ChatMessage,
+    GenerationRequest,
+    ModelRegistry,
+    ModelSelection,
+    OpenAICompatibleAdapter,
+    Operation,
+)
+
+async def main():
+    adapter = OpenAICompatibleAdapter.from_env(
+        api_key_env="DEEPSEEK_API_KEY",
+        provider_id="deepseek",
+        base_url="https://api.deepseek.com",
+    )
+
+    registry = ModelRegistry()
+    registry.register_provider_catalog(
+        adapter.provider_id,
+        await adapter.discover_models(),
+    )
+
+    # In a product UI, this exact ID comes from the user's model selection.
+    selection = ModelSelection(
+        provider_id="deepseek",
+        model_id="deepseek-flash",
+        operation=Operation.HOSTED_INFERENCE,
+    )
+    registry.resolve(selection)
+
+    request = GenerationRequest(
+        selection=selection,
+        messages=(
+            ChatMessage("user", "What information is needed to diagnose maize leaf blight?"),
+        ),
+    )
+    response = await adapter.generate(request)
+    print(response.output_text)
+
+asyncio.run(main())
+```
+
+Use the exact model ID returned by live discovery or explicitly selected by the user. The adapter does not choose a default, retry on a different model, or switch providers. This example uses a hosted API and may incur provider charges.
+
+For OpenRouter, configure the same adapter with `provider_id="openrouter"` and `base_url="https://openrouter.ai/api/v1"`. See the [provider adapter documentation](docs/PROVIDER_ADAPTERS.md) for endpoint sources, behavior, and limitations.
 
 ## Project documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — target system boundaries and request flow.
+- [Architecture](docs/ARCHITECTURE.md) — system boundaries and request flow.
 - [Roadmap](docs/ROADMAP.md) — evidence-gated project milestones.
 - [Data Governance](docs/DATA_GOVERNANCE.md) — publication versus training eligibility.
 - [Research Policy](docs/RESEARCH_POLICY.md) — claim and evaluation standards.
 - [Reproducibility](docs/REPRODUCIBILITY.md) — experiment manifest requirements.
 - [Model Registry](docs/MODEL_REGISTRY.md) — exact model selection and capability checks.
+- [Provider Adapters](docs/PROVIDER_ADAPTERS.md) — hosted adapter setup and API references.
 - [Model Benchmark Protocol](docs/BASE_MODEL_BENCHMARK.md) — candidate comparison methodology.
 - [Migration Plan](docs/MIGRATION_PLAN.md) — controlled migration from the legacy repository.
 - [Model Card Template](docs/templates/MODEL_CARD_TEMPLATE.md) — documentation required for model releases.
@@ -75,11 +135,11 @@ This validates metadata and selection. It does not download weights, call a prov
 
 ## Repository layout
 
-- `src/agroguardai/` — typed model contracts, registry, configuration loader, and provider protocol.
+- `src/agroguardai/` — typed model contracts, registry, configuration loader, and provider adapters.
 - `configs/` — example model and experiment configurations.
 - `data/` — schemas, source metadata, and annotation guidance; no legacy dataset is released yet.
-- `docs/` — architecture, governance, evaluation, and research policies.
-- `tests/` — automated validation.
+- `docs/` — architecture, governance, provider, and research documentation.
+- `tests/` — automated unit and mocked integration validation.
 - `.github/` — CI, CodeQL, Dependabot, issue forms, and contribution templates.
 
 ## Development
