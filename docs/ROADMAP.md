@@ -28,17 +28,17 @@ This roadmap describes evidence-gated milestones. Dates are intentionally omitte
 ## M2 — Hosted and local provider adapters
 
 - [x] Generic OpenAI-compatible hosted adapter for text model discovery and chat completions
-- [x] Mocked HTTP tests for discovery, request construction, errors, and response identity
-- [x] DeepSeek and OpenRouter endpoint configurations documented against their current API references
+- [x] Mocked HTTP tests for DeepSeek-style and OpenRouter-style catalog responses
+- [x] Moonshot/Kimi model-list compatibility using explicit provider-specific text modality defaults
+- [x] Mocked HTTP tests for request construction, authentication, rate limits, errors, and model identity
 - [ ] Verify live credentials and run opt-in smoke tests for each configured provider
-- [ ] Dedicated Moonshot/Kimi adapter or verified configuration
-- [ ] Additional provider adapters where the API contract differs
+- [ ] Dedicated adapters for providers with API semantics that differ from chat completions
 - [ ] Local open-weight runtime adapter
 - [ ] Streaming and tool-call interfaces
-- [ ] Image, audio, and video adapter contracts
+- [ ] Image, audio, and video request contracts
 - [ ] Provider contract-test suite shared across integrations
 
-**Exit criteria:** each supported integration has a provider-specific smoke-test record and common contract tests; capability declarations come from verified provider metadata; no provider switch occurs without an explicit user fallback policy.
+**Exit criteria:** each supported integration has a provider-specific smoke-test record and common contract tests; capability declarations come from verified provider metadata or explicit documented provider-specific defaults; no provider switch occurs without an explicit user fallback policy.
 
 ## M3 — Dataset engineering
 

@@ -1,7 +1,6 @@
 # Illustrative, user-supplied model selection configuration.
 # Never store API keys here. Inject credentials through environment variables.
-# Model identifiers are intentionally placeholders: populate them from the
-# provider's current model catalog and review each model's actual capabilities.
+# Model identifiers must come from the selected provider's current catalog.
 
 selection:
   # All fields are required at run time. No implicit or random default.
@@ -19,7 +18,8 @@ providers:
     api_key_env: DEEPSEEK_API_KEY
     discovery:
       enabled: true
-      endpoint: /models
+      endpoint: models
+      # DeepSeek's catalog documents these modality arrays per model.
 
   moonshot:
     protocol: openai-compatible
@@ -27,12 +27,26 @@ providers:
     api_key_env: MOONSHOT_API_KEY
     discovery:
       enabled: true
-      endpoint: /models
+      endpoint: models
+      # Moonshot's catalog uses supports_image_in/supports_video_in rather
+      # than input/output modality arrays. These defaults are limited to this
+      # documented text chat-completions integration; they are not global.
+      default_input_modalities: [text]
+      default_output_modalities: [text]
+
+  openrouter:
+    protocol: openai-compatible
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    discovery:
+      enabled: true
+      endpoint: models
+      # OpenRouter exposes architecture.input_modalities/output_modalities.
 
   huggingface:
     protocol: transformers
-    # Use an exact repository ID and immutable commit hash after verifying
-    # architecture support, model terms, and local hardware requirements.
+    # This is a local-runtime example only. No Hugging Face provider adapter
+    # is implemented by the current hosted OpenAI-compatible adapter.
     model_id: HF_NAMESPACE/HF_MODEL_REPOSITORY
     revision: IMMUTABLE_COMMIT_HASH
     operation_support:
