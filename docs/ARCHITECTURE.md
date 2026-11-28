@@ -11,7 +11,7 @@ The architecture must not depend on one model vendor or hide model substitution.
 1. **Model registry** — stores exact provider/model identifiers, supported operations, modality capabilities, availability, and terms-review status. The in-memory registry and core model contracts are implemented.
 2. **Provider configuration** — loads provider endpoints and protocol settings from YAML while resolving credential values only from named environment variables. The configuration parser and selected-adapter factory are implemented for the OpenAI-compatible hosted protocol.
 3. **Provider adapters** — translate a common internal request into each provider's API or local-runtime interface. A shared async protocol and a generic OpenAI-compatible hosted text adapter are implemented. Provider-specific differences require their own tested adapters.
-4. **Execution layer** — coordinates registry resolution and adapter invocation. It must preserve exact model selection, validate returned model identity, and keep credentials outside source control. A unified execution/orchestration service is not yet implemented.
+4. **Hosted runtime** — connects configuration, catalog discovery, exact registry resolution, adapter generation, and response-identity checks for one configured hosted model. This single-provider text runtime is implemented; multi-provider fallback orchestration and local runtime execution are not.
 5. **Data pipeline** — validates schemas, tracks provenance and consent/rights, preserves annotation statuses, detects duplicates, and creates leakage-resistant versioned splits. This layer is not yet implemented.
 6. **Agricultural safety layer** — checks task-specific constraints, evidence requirements, uncertainty, and referral conditions. It must fail safely when required information is missing. This layer is not yet implemented.
 7. **Evaluation layer** — evaluates each language and task independently, records exact experiment manifests, and generates reports. Documentation and templates exist; executable benchmark tooling is still planned.
@@ -26,10 +26,10 @@ User selects provider + exact model ID
        Load selected provider config
                 |
                 v
-       Build provider adapter
+       Build selected provider adapter
                 |
                 v
-       Discover and register model catalog
+       Hosted runtime refreshes catalog
                 |
                 v
        Exact model registry resolution
@@ -37,19 +37,19 @@ User selects provider + exact model ID
        capability / terms checks
                 |
                 v
-       Provider adapter request
+       Send explicit generation request
                 |
                 v
        Response identity validation
                 |
                 v
-  Agricultural safety / evidence checks
+  (Future) agricultural safety/evidence layer
                 |
                 v
-     Response + traceable metadata
+        Response + traceable metadata
 ```
 
-If the user has not selected a model, configuration must fail. If the selected provider is not configured, its protocol is unsupported, or the selected model is unavailable, return an error. Fallback is disabled unless the user explicitly configures an ordered list. The current package validates fallback configuration and requires each candidate provider profile, but it does not execute fallback.
+If the user has not selected a model, configuration must fail. If the selected provider is not configured, its protocol is unsupported, or the selected model is unavailable, return an error. Fallback is disabled unless the user explicitly configures an ordered list. The configuration layer validates fallback entries and requires their provider profiles; the current hosted runtime rejects enabled fallback because fallback execution is not implemented.
 
 ## Implemented provider configuration
 
@@ -59,7 +59,19 @@ If the user has not selected a model, configuration must fail. If the selected p
 - The current factory supports the `openai-compatible` hosted protocol. A future protocol such as `transformers` may be documented in the catalog, but attempting to select it returns an explicit unsupported-protocol error.
 - Provider-specific discovery paths and optional modality defaults are passed to the generic adapter. Defaults are never applied globally and never override explicit catalog fields.
 
-These functions construct an adapter; they do not themselves discover the catalog, resolve the selected model, send a generation request, or execute fallback. Callers must still perform those steps explicitly.
+## Implemented hosted runtime
+
+`HostedModelRuntime.from_config(config)` constructs the selected adapter from a validated `ModelRuntimeConfig`. Its `generate(request)` method:
+
+1. requires the request's provider, exact model ID, and operation to match the configuration;
+2. discovers the provider catalog on first use and caches the validated catalog;
+3. resolves the exact selected model and checks advertised capability/terms constraints through `ModelRegistry`;
+4. invokes the selected adapter once, without silent retry or provider/model substitution;
+5. validates the response provider/model identity before returning it.
+
+Catalog refresh is explicit through `await runtime.refresh_catalog()`. Parallel first requests share one initial catalog discovery. If discovery fails or returns a catalog with the wrong provider identity, a previously valid catalog snapshot is not replaced.
+
+The runtime currently supports only hosted text inference. It rejects enabled fallback, local inference, and any request that differs from the configured model selection. It does not apply agricultural safety checks, execute training, or provide a multimodal interface.
 
 ## Implemented provider contract
 
@@ -81,6 +93,6 @@ Model weights, datasets, and application code do not automatically share one lic
 
 ## Current implementation status
 
-Implemented: typed model descriptors and selections, operation/modality metadata, in-memory registry, strict safe-YAML selection loader, explicit fallback-policy validation, provider configuration parsing, selected OpenAI-compatible adapter construction, generic hosted text adapter, mocked HTTP integration tests, and exact-response identity checks.
+Implemented: typed model descriptors and selections, operation/modality metadata, in-memory registry, strict safe-YAML selection loader, explicit fallback-policy validation, provider configuration parsing, selected OpenAI-compatible adapter construction, hosted text runtime, mocked HTTP integration tests, catalog caching, and exact-response identity checks.
 
-Not yet implemented: unified execution orchestration, provider-specific live smoke-test records, local runtime, training pipeline, dataset engineering, multimodal adapters, streaming/tool calls, and agricultural safety enforcement. Track delivery in [ROADMAP.md](ROADMAP.md).
+Not yet implemented: fallback execution, provider-specific live smoke-test records, local runtime, training pipeline, dataset engineering, multimodal adapters, streaming/tool calls, and agricultural safety enforcement. Track delivery in [ROADMAP.md](ROADMAP.md).

@@ -34,7 +34,9 @@ This roadmap describes evidence-gated milestones. Dates are intentionally omitte
 - [x] Mocked HTTP tests for DeepSeek-style and OpenRouter-style catalog responses
 - [x] Moonshot/Kimi model-list compatibility using explicit provider-specific text modality defaults
 - [x] Mocked HTTP tests for request construction, authentication, rate limits, errors, and model identity
-- [ ] Unified request orchestration (load config, discover/register catalog, resolve exact selection, call adapter, validate response)
+- [x] Single-provider hosted runtime: discover/cache catalog, resolve exact model, generate, validate response identity
+- [x] Concurrency and failure-atomicity tests for catalog refresh
+- [ ] Execute fallback only after a separate explicit fallback policy and audit trail are implemented
 - [ ] Verify live credentials and run opt-in smoke tests for each configured provider
 - [ ] Dedicated adapters for providers with API semantics that differ from chat completions
 - [ ] Local open-weight runtime adapter

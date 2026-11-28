@@ -23,16 +23,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Unt
 - Mocked Moonshot/Kimi model discovery coverage for `context_length`, explicit provider defaults, and refusal to override stated catalog capabilities.
 - Configuration-driven provider profile loading and construction of the selected OpenAI-compatible adapter.
 - Runtime environment-variable secret resolution and tests for missing credentials, unsupported protocols, and missing fallback-provider profiles.
+- Single-provider hosted model runtime that discovers and caches the catalog, resolves the exact configured model, generates text, and validates provider/model response identity.
+- Mocked runtime tests for catalog caching, concurrency, model mismatch, provider mismatch, fallback rejection, and atomic catalog refresh.
 - Provider adapter endpoint and security documentation.
 
 ### Changed
 
-- Package API version advanced to 0.4.0.
-- README and architecture distinguish provider construction from model execution and from agricultural safety enforcement.
+- Package API version advanced to 0.5.0.
+- README and architecture distinguish configuration, adapter construction, hosted request orchestration, and the planned agricultural safety layer.
 
 ### Planned
 
-- Unified request orchestration and explicit execution flow.
+- Explicit fallback executor with an auditable candidate order and no implicit provider changes.
 - Live provider smoke tests with opt-in credentials.
 - Dedicated adapters for providers with different API semantics.
 - Local open-weight runtime and streaming/tool-use contracts.
