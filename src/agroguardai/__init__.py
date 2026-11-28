@@ -24,13 +24,15 @@ from .models import (
 from .openai_compatible import OpenAICompatibleAdapter
 from .providers import ProviderAdapter
 from .registry import ModelRegistry
+from .runtime import HostedModelRuntime
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "ChatMessage",
     "GenerationRequest",
     "GenerationResponse",
+    "HostedModelRuntime",
     "Modality",
     "ModelDescriptor",
     "ModelRegistry",
