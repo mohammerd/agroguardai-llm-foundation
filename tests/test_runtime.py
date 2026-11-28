@@ -7,7 +7,6 @@ import pytest
 from agroguardai.config import model_runtime_config_from_mapping
 from agroguardai.errors import (
     ConfigurationError,
-    ModelUnavailableError,
     ProviderIdentityMismatchError,
     ProviderRequestMismatchError,
     ProviderResponseMismatchError,
