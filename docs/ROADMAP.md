@@ -8,20 +8,22 @@ This roadmap describes evidence-gated milestones. Dates are intentionally omitte
 - [x] Basic CI for tests and lint
 - [x] Data publication versus training governance
 - [x] Explicit model selection policy
-- [ ] Complete citation, conduct, and collaboration metadata
-- [ ] Repository security settings and branch rules
+- [x] Citation, conduct, and contributor metadata
+- [x] CodeQL, Dependabot, and OpenSSF Scorecard workflows
+- [ ] Repository branch rules and required status checks (manual GitHub setting)
 
 **Exit criteria:** repository metadata is accurate; clean installation and CI are repeatable; contributor and security processes are documented.
 
 ## M1 — Core contracts and validation
 
-- [ ] Typed provider, model, capability, and operation contracts
-- [ ] Strict configuration parser and schema validation
-- [ ] Explicit selection errors; no implicit default or fallback
-- [ ] Unit tests for unknown providers, unknown models, unavailable models, and unsupported operations
-- [ ] Structured experiment manifest
+- [x] Typed provider, model, capability, and operation contracts
+- [x] Strict YAML selection parser and validation
+- [x] Explicit selection errors; no implicit default or fallback
+- [x] Unit tests for unknown providers, unknown models, unavailable models, terms gates, and unsupported operations
+- [x] Provider adapter protocol and exact-response identity validation
+- [ ] Structured experiment manifest implementation
 
-**Exit criteria:** model choice is deterministic, inspectable, and test-covered without requiring a paid provider.
+**Exit criteria:** model choice is deterministic, inspectable, and test-covered without requiring a paid provider. This milestone does not include live provider calls.
 
 ## M2 — Provider adapters
 
@@ -51,7 +53,7 @@ This roadmap describes evidence-gated milestones. Dates are intentionally omitte
 - [ ] Native-language review capacity for each language reported
 - [ ] Agronomist-reviewed gold set and unsafe-advice tests
 - [ ] Per-language results, confidence intervals, and limitations
-- [ ] Model cards and dataset cards
+- [ ] Model cards and dataset cards populated for actual releases
 - [ ] Independent external review of methodology
 
 **Exit criteria:** results can be independently reproduced from published manifests and permissible artifacts; no broad quality claims without evidence.

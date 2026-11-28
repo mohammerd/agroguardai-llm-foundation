@@ -4,13 +4,13 @@
 
 Research infrastructure for building and evaluating safer agricultural language models, with an initial focus on Nigerian and other underrepresented African languages.
 
-AgroGuardAI is not a generic chatbot wrapper. The project is intended to combine a governed agricultural data foundation, model-agnostic execution, language-specific evaluation, and safety controls for high-impact agronomic advice.
+AgroGuardAI is not a generic chatbot wrapper. The project combines a governed agricultural data foundation, model-agnostic execution, language-specific evaluation, and safety controls for high-impact agronomic advice.
 
 ## Project status
 
-**Early research foundation — not production-ready.** The public repository currently contains the package scaffold, governance documentation, model-selection policy, collaboration templates, and CI/security workflows. Provider adapters, model execution, dataset pipelines, and agricultural safety enforcement are planned but not yet implemented.
+**Early research infrastructure — not production-ready.** The repository now includes a tested model registry, typed model/operation metadata, strict YAML selection configuration, an explicit provider-adapter contract, and exact-response validation. No concrete hosted or local provider adapter is released yet, and no legacy dataset or model weight has been migrated or cleared for redistribution.
 
-The legacy research repository is `mohammerd/agroguardai-llm`. No legacy datasets, model weights, or training results have been migrated or cleared for redistribution. The old repository remains the source archive during the migration review.
+The legacy research repository is `mohammerd/agroguardai-llm`. It remains unchanged as the source archive during migration review.
 
 ## Design principles
 
@@ -24,7 +24,39 @@ The legacy research repository is `mohammerd/agroguardai-llm`. No legacy dataset
 
 ## Model support
 
-The target registry is extensible and is intended to include providers and model families such as DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, and other supported models. A model is selectable only when an adapter and its capabilities are implemented and validated. See [Model Registry](docs/MODEL_REGISTRY.md).
+The registry is designed to support multiple providers and model families, including DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, and other compatible models. A model is selectable only after its exact provider/model ID and supported operations are registered. Live discovery and inference integrations are still under development; the project does not claim that all named providers are currently connected. See [Model Registry](docs/MODEL_REGISTRY.md).
+
+## Core API (implemented)
+
+The registry and selection contracts can be used without paid API credentials:
+
+```python
+from agroguardai import ModelDescriptor, ModelRegistry, ModelSelection, Operation, TermsStatus
+
+registry = ModelRegistry()
+registry.register(
+    ModelDescriptor(
+        provider_id="local",
+        model_id="agro-model-3b",
+        display_name="Agro Model 3B",
+        operations=frozenset({Operation.LOCAL_INFERENCE}),
+        terms_status=TermsStatus.REVIEWED,
+        terms_url="https://example.org/model-license",
+        terms_reviewed_at="2026-11-28T12:00:00Z",
+    )
+)
+
+selected = registry.resolve(
+    ModelSelection(
+        provider_id="local",
+        model_id="agro-model-3b",
+        operation=Operation.LOCAL_INFERENCE,
+    )
+)
+print(selected.model_id)
+```
+
+This validates metadata and selection. It does not download weights, call a provider, or run inference. Concrete adapters will be added through the shared `ProviderAdapter` protocol. A model cannot be marked reviewed or restricted without an HTTPS terms source and a timezone-aware review timestamp.
 
 ## Project documentation
 
@@ -33,7 +65,7 @@ The target registry is extensible and is intended to include providers and model
 - [Data Governance](docs/DATA_GOVERNANCE.md) — publication versus training eligibility.
 - [Research Policy](docs/RESEARCH_POLICY.md) — claim and evaluation standards.
 - [Reproducibility](docs/REPRODUCIBILITY.md) — experiment manifest requirements.
-- [Model Registry](docs/MODEL_REGISTRY.md) — explicit model/provider selection.
+- [Model Registry](docs/MODEL_REGISTRY.md) — exact model selection and capability checks.
 - [Model Benchmark Protocol](docs/BASE_MODEL_BENCHMARK.md) — candidate comparison methodology.
 - [Migration Plan](docs/MIGRATION_PLAN.md) — controlled migration from the legacy repository.
 - [Model Card Template](docs/templates/MODEL_CARD_TEMPLATE.md) — documentation required for model releases.
@@ -43,7 +75,7 @@ The target registry is extensible and is intended to include providers and model
 
 ## Repository layout
 
-- `src/agroguardai/` — reusable Python package.
+- `src/agroguardai/` — typed model contracts, registry, configuration loader, and provider protocol.
 - `configs/` — example model and experiment configurations.
 - `data/` — schemas, source metadata, and annotation guidance; no legacy dataset is released yet.
 - `docs/` — architecture, governance, evaluation, and research policies.
