@@ -40,7 +40,7 @@ class OpenAICompatibleAdapter:
 
     The caller supplies a stable provider ID, API base URL, and optional key.
     The base URL may include a version prefix, for example the OpenRouter
-    /api/v1 prefix. Credentials are held only in memory and are never logged.
+    API prefix. Credentials are held only in memory and are never logged.
     """
 
     def __init__(
@@ -63,6 +63,8 @@ class OpenAICompatibleAdapter:
         parsed = urlparse(base_url)
         if parsed.scheme not in {"https", "http"} or not parsed.netloc:
             raise ConfigurationError("base_url must be an absolute HTTP(S) URL.")
+        if parsed.username is not None or parsed.password is not None:
+            raise ConfigurationError("base_url must not contain embedded credentials.")
         if parsed.scheme != "https" and parsed.hostname not in {
             "localhost",
             "127.0.0.1",
@@ -87,9 +89,12 @@ class OpenAICompatibleAdapter:
                 or "://" in path
                 or "?" in path
                 or "#" in path
+                or "\\" in path
+                or any(part in {".", ".."} for part in path.split("/"))
+                or any(character.isspace() for character in path)
             ):
                 raise ConfigurationError(
-                    f"{field_name} must be a non-empty relative API path."
+                    f"{field_name} must be a safe relative API path."
                 )
 
         self._provider_id = provider_id
@@ -117,6 +122,8 @@ class OpenAICompatibleAdapter:
 
         if not isinstance(api_key_env, str) or not api_key_env.strip():
             raise ConfigurationError("api_key_env must name a non-empty environment variable.")
+        if "api_key" in kwargs:
+            raise ConfigurationError("Use api_key_env or api_key, not both.")
         api_key = os.environ.get(api_key_env)
         if not api_key:
             raise ConfigurationError(
@@ -125,7 +132,13 @@ class OpenAICompatibleAdapter:
         return cls(api_key=api_key, **kwargs)
 
     async def discover_models(self) -> tuple[ModelDescriptor, ...]:
-        """Fetch the model catalog and return conservative text-hosted descriptors."""
+        """Fetch the model catalog and return only explicitly advertised text models.
+
+        Model catalogs differ. The adapter accepts top-level input/output modality
+        fields or the OpenRouter-style architecture.input_modalities/output_modalities
+        fields. Models without explicit text support are not registered by this
+        text-only adapter; they can be handled by a future modality-specific adapter.
+        """
 
         response = await self._request("GET", self._model_list_path)
         payload = self._decode_json(response, "model catalog")
@@ -151,6 +164,19 @@ class OpenAICompatibleAdapter:
                     f"Provider '{self.provider_id}' returned duplicate model ID '{model_id}'."
                 )
             seen_ids.add(model_id)
+
+            architecture = item.get("architecture")
+            architecture = architecture if isinstance(architecture, dict) else {}
+            input_modalities = item.get(
+                "input_modalities", architecture.get("input_modalities")
+            )
+            output_modalities = item.get(
+                "output_modalities", architecture.get("output_modalities")
+            )
+            if not self._advertises_text(input_modalities) or not self._advertises_text(
+                output_modalities
+            ):
+                continue
 
             display_name = item.get("name")
             if not isinstance(display_name, str) or not display_name.strip():
@@ -314,6 +340,10 @@ class OpenAICompatibleAdapter:
             raise ProviderProtocolError(
                 f"Provider '{self.provider_id}' returned invalid JSON for {response_name}."
             ) from exc
+
+    @staticmethod
+    def _advertises_text(modalities: Any) -> bool:
+        return isinstance(modalities, list) and "text" in modalities
 
     @staticmethod
     def _context_window(item: Mapping[str, Any]) -> int | None:
