@@ -27,8 +27,8 @@ from .errors import (
 from .models import (
     GenerationRequest,
     GenerationResponse,
-    ModelDescriptor,
     Modality,
+    ModelDescriptor,
     Operation,
     TermsStatus,
     validate_provider_response,
