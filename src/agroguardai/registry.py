@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from .errors import (
+    ConfigurationError,
     DuplicateModelError,
     ModelTermsError,
     ModelUnavailableError,
@@ -68,9 +69,11 @@ class ModelRegistry:
         """
 
         if not isinstance(provider_id, str) or not provider_id.strip():
-            raise ValueError("provider_id must be a non-empty string.")
-        if provider_id != provider_id.strip() or any(character.isspace() for character in provider_id):
-            raise ValueError("provider_id must not contain whitespace.")
+            raise ConfigurationError("provider_id must be a non-empty string.")
+        if provider_id != provider_id.strip() or any(
+            character.isspace() for character in provider_id
+        ):
+            raise ConfigurationError("provider_id must not contain whitespace.")
 
         batch = list(descriptors)
         mismatched = [item.model_id for item in batch if item.provider_id != provider_id]
