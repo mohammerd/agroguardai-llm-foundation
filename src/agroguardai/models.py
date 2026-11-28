@@ -196,7 +196,12 @@ class GenerationRequest:
     temperature: float | None = None
 
     def __post_init__(self) -> None:
-        messages = tuple(self.messages)
+        if not isinstance(self.selection, ModelSelection):
+            raise ConfigurationError("selection must be a ModelSelection.")
+        try:
+            messages = tuple(self.messages)
+        except TypeError as exc:
+            raise ConfigurationError("messages must be an iterable of ChatMessage objects.") from exc
         if not messages or any(not isinstance(message, ChatMessage) for message in messages):
             raise ConfigurationError("messages must contain one or more ChatMessage objects.")
         object.__setattr__(self, "messages", messages)
@@ -232,6 +237,8 @@ class GenerationResponse:
         _require_identifier(self.model_id, "model_id")
         if not isinstance(self.output_text, str):
             raise ConfigurationError("output_text must be a string.")
+        if self.finish_reason is not None and not isinstance(self.finish_reason, str):
+            raise ConfigurationError("finish_reason must be a string or None.")
         for field_name in ("input_tokens", "output_tokens"):
             value = getattr(self, field_name)
             if value is not None and (
