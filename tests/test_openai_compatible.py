@@ -30,12 +30,19 @@ def run(coroutine):
     return asyncio.run(coroutine)
 
 
-def make_adapter(handler, **kwargs):
+def make_adapter(
+    handler,
+    *,
+    provider_id="deepseek",
+    base_url="https://api.deepseek.com",
+    api_key="test-secret",
+    **kwargs,
+):
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     adapter = OpenAICompatibleAdapter(
-        provider_id="deepseek",
-        base_url="https://api.deepseek.com",
-        api_key="test-secret",
+        provider_id=provider_id,
+        base_url=base_url,
+        api_key=api_key,
         client=client,
         **kwargs,
     )
@@ -138,6 +145,7 @@ def test_discovery_reads_deepseek_style_text_model_metadata():
 
 def test_discovery_reads_openrouter_style_architecture_metadata():
     def handler(request):
+        assert request.url.path == "/api/v1/models"
         return httpx.Response(
             200,
             json={
@@ -158,7 +166,8 @@ def test_discovery_reads_openrouter_style_architecture_metadata():
     async def scenario():
         adapter, client = make_adapter(
             handler,
-            provider_id_override=None,
+            provider_id="openrouter",
+            base_url="https://openrouter.ai/api/v1",
         )
         try:
             models = await adapter.discover_models()
