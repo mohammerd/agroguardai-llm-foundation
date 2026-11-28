@@ -26,32 +26,40 @@ export DEEPSEEK_API_KEY="your-key"
 ```
 
 ```python
+from agroguardai import HostedModelRuntime, load_model_config
+
+config = load_model_config("configs/models.yaml")
+runtime = HostedModelRuntime.from_config(config)
+```
+
+The factory builds only the selected provider. It resolves credential values from the process environment (or an explicitly supplied environment mapping for tests), not from YAML. It supports only the `openai-compatible` protocol. A documented but unimplemented protocol such as `transformers` can remain in an unselected provider profile; selecting it raises a clear unsupported-protocol error. The factory also rejects unknown fields in the selected provider profile.
+
+## Hosted runtime orchestration
+
+`HostedModelRuntime` connects the provider configuration, model registry, and hosted adapter for one selected provider/model:
+
+```python
 import asyncio
 
 from agroguardai import (
     ChatMessage,
     GenerationRequest,
-    ModelRegistry,
-    build_selected_adapter,
+    HostedModelRuntime,
     load_model_config,
 )
 
 
 async def main():
     config = load_model_config("configs/models.yaml")
-    adapter = build_selected_adapter(config)
+    runtime = HostedModelRuntime.from_config(config)
 
-    registry = ModelRegistry()
-    registry.register_provider_catalog(adapter.provider_id, await adapter.discover_models())
-    selection = config.selection.primary
-    registry.resolve(selection)
-
-    response = await adapter.generate(
-        GenerationRequest(
-            selection=selection,
-            messages=(ChatMessage("user", "What are common maize leaf blight symptoms?"),),
-        )
+    request = GenerationRequest(
+        selection=config.selection.primary,
+        messages=(
+            ChatMessage("user", "What are common maize leaf blight symptoms?"),
+        ),
     )
+    response = await runtime.generate(request)
     print(response.output_text)
 
 
@@ -59,9 +67,11 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-The factory builds only the selected provider. It resolves credential values from the process environment (or an explicitly supplied environment mapping for tests), not from YAML. It does not automatically discover models, resolve the model ID, execute a request, perform fallback, or apply agricultural safety controls; those steps remain explicit.
+On the first request, the runtime discovers the selected provider's catalog, registers it, and checks the exact configured model and operation. It caches that validated catalog for subsequent requests. Call `await runtime.refresh_catalog()` to explicitly refresh it.
 
-Only `openai-compatible` is currently supported by the factory. A documented but unimplemented protocol such as `transformers` can remain in an unselected provider profile; selecting it raises a clear unsupported-protocol error. The factory also rejects unknown fields in the selected provider profile. Fallback candidates must each have a corresponding provider profile, but fallback execution is not implemented.
+The request must match the provider, exact model ID, and operation selected in the loaded config. The runtime checks the response identity again before returning output. Parallel first requests share one catalog discovery, and a failed refresh does not replace a previously valid catalog snapshot.
+
+The runtime supports one hosted text model per instance. It rejects enabled fallback for now; although fallback configuration is parsed and validated, there is no fallback executor. It also does not apply agricultural safety policies or evidence checks. Applications must not present its raw output as verified agronomic advice.
 
 ## Verified example endpoints
 
@@ -85,7 +95,7 @@ Provider documentation:
 
 This is endpoint documentation, not a claim that AgroGuardAI has tested every model listed by those services. Mocked integration tests exercise representative documented response shapes. Live credentials and provider-specific smoke tests remain opt-in and have not been claimed as completed.
 
-## Example: DeepSeek
+## Example: DeepSeek (direct adapter use)
 
 Set the API key in the runtime environment. Never commit the value.
 
@@ -142,7 +152,7 @@ if __name__ == "__main__":
 
 The example model ID is illustrative; use the exact current ID returned by discovery or selected by the user, and do not assume that a provider alias is immutable.
 
-## Example: OpenRouter
+## Example: OpenRouter (direct adapter use)
 
 ```python
 from agroguardai import OpenAICompatibleAdapter
@@ -156,7 +166,7 @@ adapter = OpenAICompatibleAdapter.from_env(
 
 OpenRouter's model catalog can contain models hosted by many upstream organizations. The adapter's provider identity is still `openrouter`, because that is the API endpoint selected by the user. The upstream model ID remains the exact model ID returned by the catalog.
 
-## Example: Moonshot / Kimi API
+## Example: Moonshot / Kimi API (direct adapter use)
 
 Moonshot's model-list response documents `id`, `context_length`, and feature flags such as `supports_image_in` and `supports_video_in`; it does not use the explicit modality arrays returned by DeepSeek or OpenRouter. The provider-specific defaults below enable only the text modality supported by this adapter. They do not turn on image/video requests.
 
