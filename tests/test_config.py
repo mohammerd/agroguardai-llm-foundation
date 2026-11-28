@@ -23,6 +23,8 @@ def make_registry() -> ModelRegistry:
                 display_name="Primary",
                 operations=frozenset({Operation.HOSTED_INFERENCE}),
                 terms_status=TermsStatus.REVIEWED,
+                terms_url="https://example.org/primary-terms",
+                terms_reviewed_at="2026-11-28T12:00:00Z",
             ),
             ModelDescriptor(
                 provider_id="backup-provider",
@@ -30,6 +32,8 @@ def make_registry() -> ModelRegistry:
                 display_name="Backup",
                 operations=frozenset({Operation.HOSTED_INFERENCE}),
                 terms_status=TermsStatus.REVIEWED,
+                terms_url="https://example.org/backup-terms",
+                terms_reviewed_at="2026-11-28T12:00:00Z",
             ),
         ]
     )
@@ -89,7 +93,9 @@ def test_fallback_is_disabled_by_default():
 def test_disabled_fallback_cannot_hide_candidates():
     with pytest.raises(ConfigurationError, match="while fallback is disabled"):
         SelectionConfig(
-            primary=ModelSelection("primary-provider", "primary-model", Operation.HOSTED_INFERENCE),
+            primary=ModelSelection(
+                "primary-provider", "primary-model", Operation.HOSTED_INFERENCE
+            ),
             fallback_enabled=False,
             ordered_fallbacks=(FallbackModel("backup-provider", "backup-model"),),
         )
@@ -98,7 +104,9 @@ def test_disabled_fallback_cannot_hide_candidates():
 def test_enabled_fallback_requires_an_explicit_ordered_list():
     with pytest.raises(ConfigurationError, match="ordered_candidates is empty"):
         SelectionConfig(
-            primary=ModelSelection("primary-provider", "primary-model", Operation.HOSTED_INFERENCE),
+            primary=ModelSelection(
+                "primary-provider", "primary-model", Operation.HOSTED_INFERENCE
+            ),
             fallback_enabled=True,
         )
 
