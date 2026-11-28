@@ -1,11 +1,10 @@
-# Illustrative, user-supplied model selection configuration.
+# Model selection and provider endpoints.
 # Never store API keys here. Inject credentials through environment variables.
-# Model identifiers must come from the selected provider's current catalog.
+# Replace the selected model ID with the exact value returned by discovery.
 
 selection:
-  # All fields are required at run time. No implicit or random default.
-  provider: PROVIDER_ID
-  model_id: EXACT_PROVIDER_MODEL_ID
+  provider: deepseek
+  model_id: REPLACE_WITH_EXACT_MODEL_ID
   operation: hosted_inference
   fallback:
     enabled: false
@@ -17,16 +16,14 @@ providers:
     base_url: https://api.deepseek.com
     api_key_env: DEEPSEEK_API_KEY
     discovery:
-      enabled: true
       endpoint: models
-      # DeepSeek's catalog documents these modality arrays per model.
+      # DeepSeek's catalog documents input/output modality arrays per model.
 
   moonshot:
     protocol: openai-compatible
     base_url: https://api.moonshot.ai/v1
     api_key_env: MOONSHOT_API_KEY
     discovery:
-      enabled: true
       endpoint: models
       # Moonshot's catalog uses supports_image_in/supports_video_in rather
       # than input/output modality arrays. These defaults are limited to this
@@ -39,25 +36,19 @@ providers:
     base_url: https://openrouter.ai/api/v1
     api_key_env: OPENROUTER_API_KEY
     discovery:
-      enabled: true
       endpoint: models
       # OpenRouter exposes architecture.input_modalities/output_modalities.
 
   huggingface:
     protocol: transformers
-    # This is a local-runtime example only. No Hugging Face provider adapter
-    # is implemented by the current hosted OpenAI-compatible adapter.
+    # This is a future local-runtime example. The current provider-config
+    # factory will report this protocol as unsupported if selected.
     model_id: HF_NAMESPACE/HF_MODEL_REPOSITORY
     revision: IMMUTABLE_COMMIT_HASH
-    operation_support:
-      hosted_inference: unknown_until_verified
-      local_inference: unknown_until_verified
-      fine_tuning: unknown_until_verified
-      weight_export: requires_license_review
 
 # Each real experiment must record:
 # - selected provider and exact model ID
-# - immutable revision or hosted provider identifier
+# - immutable model revision or hosted provider identifier
 # - operation and runtime/adapter versions
 # - capability and terms review state
 # - provider catalog discovery timestamp (where available)

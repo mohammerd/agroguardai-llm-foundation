@@ -1,6 +1,15 @@
 """AgroGuardAI research infrastructure."""
 
-from .config import SelectionConfig, load_selection_config, selection_config_from_mapping
+from .config import (
+    ModelRuntimeConfig,
+    ProviderConfig,
+    SelectionConfig,
+    build_selected_adapter,
+    load_model_config,
+    load_selection_config,
+    model_runtime_config_from_mapping,
+    selection_config_from_mapping,
+)
 from .models import (
     ChatMessage,
     GenerationRequest,
@@ -16,7 +25,7 @@ from .openai_compatible import OpenAICompatibleAdapter
 from .providers import ProviderAdapter
 from .registry import ModelRegistry
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 __all__ = [
     "ChatMessage",
@@ -25,13 +34,18 @@ __all__ = [
     "Modality",
     "ModelDescriptor",
     "ModelRegistry",
+    "ModelRuntimeConfig",
     "ModelSelection",
     "OpenAICompatibleAdapter",
     "Operation",
     "ProviderAdapter",
+    "ProviderConfig",
     "SelectionConfig",
     "TermsStatus",
+    "build_selected_adapter",
+    "load_model_config",
     "load_selection_config",
+    "model_runtime_config_from_mapping",
     "selection_config_from_mapping",
     "validate_provider_response",
 ]

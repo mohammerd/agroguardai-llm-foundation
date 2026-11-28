@@ -21,15 +21,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Unt
 - Mocked HTTP tests for DeepSeek-style and OpenRouter-style catalog formats, exact model requests, credential handling, and response identity checks.
 - Provider-specific catalog modality defaults for documented APIs such as Moonshot/Kimi that do not return modality arrays.
 - Mocked Moonshot/Kimi model discovery coverage for `context_length`, explicit provider defaults, and refusal to override stated catalog capabilities.
+- Configuration-driven provider profile loading and construction of the selected OpenAI-compatible adapter.
+- Runtime environment-variable secret resolution and tests for missing credentials, unsupported protocols, and missing fallback-provider profiles.
 - Provider adapter endpoint and security documentation.
 
 ### Changed
 
-- Package API version advanced to 0.3.1.
-- README and architecture distinguish implemented hosted text inference from planned local-runtime and multimodal integrations.
+- Package API version advanced to 0.4.0.
+- README and architecture distinguish provider construction from model execution and from agricultural safety enforcement.
 
 ### Planned
 
+- Unified request orchestration and explicit execution flow.
 - Live provider smoke tests with opt-in credentials.
 - Dedicated adapters for providers with different API semantics.
 - Local open-weight runtime and streaming/tool-use contracts.

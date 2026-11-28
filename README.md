@@ -8,7 +8,7 @@ AgroGuardAI is not a generic chatbot wrapper. The project combines a governed ag
 
 ## Project status
 
-**Early research infrastructure — not production-ready.** The repository includes a tested model registry, strict YAML selection configuration, a provider-adapter protocol, a generic OpenAI-compatible hosted text adapter, and mocked integration tests. No live provider smoke tests, local runtime, training pipeline, dataset release, or agricultural safety enforcement are claimed yet.
+**Early research infrastructure — not production-ready.** The repository includes a tested model registry, configuration-driven construction of the selected OpenAI-compatible provider adapter, a generic hosted text adapter, and mocked integration tests. No live provider smoke tests, local runtime, training pipeline, dataset release, or agricultural safety enforcement are claimed yet.
 
 The legacy research repository is `mohammerd/agroguardai-llm`. It remains unchanged as the source archive during migration review.
 
@@ -26,7 +26,7 @@ The legacy research repository is `mohammerd/agroguardai-llm`. It remains unchan
 
 The registry is designed to support multiple providers and model families, including DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, OpenAI, Anthropic, and other providers. A model is selectable only after its exact provider/model ID and supported operation have been registered.
 
-The first hosted integration is a generic OpenAI-compatible text adapter. It includes documented catalog handling for DeepSeek and OpenRouter, plus provider-specific modality defaults for Moonshot/Kimi's model-list format. Mocked fixtures cover those response formats; live credentials and per-model smoke tests remain opt-in and have not been claimed as completed. Other providers require endpoint compatibility checks or dedicated adapters. See [Provider Adapters](docs/PROVIDER_ADAPTERS.md).
+The first hosted integration is a generic OpenAI-compatible text adapter. It includes documented catalog handling for DeepSeek and OpenRouter, plus provider-specific modality defaults for Moonshot/Kimi's model-list format. The YAML provider profiles can now be loaded, and the selected compatible adapter can be constructed from the configured base URL and a named environment variable. Mocked fixtures cover the documented response formats; live credentials and per-model smoke tests remain opt-in and have not been claimed as completed. Other protocols require dedicated adapters. See [Provider Adapters](docs/PROVIDER_ADAPTERS.md).
 
 ## Core API: model registry
 
@@ -60,11 +60,11 @@ print(selected.model_id)
 
 This validates metadata and selection. It does not download weights or run local inference.
 
-## Core API: hosted inference
+## Core API: configuration-driven hosted provider
 
-The generic adapter supports text-only hosted inference through an OpenAI-compatible chat-completions API. Set the provider key in the runtime environment, not in source code or committed YAML.
+Copy `configs/models.example.yaml` to your own configuration file. Set the primary `provider` and exact `model_id`; provider credentials are named there, but their values remain in environment variables.
 
-For DeepSeek:
+For example, when selecting DeepSeek:
 
 ```bash
 export DEEPSEEK_API_KEY="your-key"
@@ -77,27 +77,20 @@ from agroguardai import (
     ChatMessage,
     GenerationRequest,
     ModelRegistry,
-    ModelSelection,
     OpenAICompatibleAdapter,
-    Operation,
+    build_selected_adapter,
+    load_model_config,
 )
 
-async def main():
-    adapter = OpenAICompatibleAdapter.from_env(
-        api_key_env="DEEPSEEK_API_KEY",
-        provider_id="deepseek",
-        base_url="https://api.deepseek.com",
-    )
 
+async def main():
+    runtime_config = load_model_config("configs/models.yaml")
+    adapter = build_selected_adapter(runtime_config)
+
+    # Refresh the selected provider's catalog and validate the exact model ID.
     registry = ModelRegistry()
     registry.register_provider_catalog(adapter.provider_id, await adapter.discover_models())
-
-    # In a product UI, this exact ID comes from the user's model selection.
-    selection = ModelSelection(
-        provider_id="deepseek",
-        model_id="deepseek-flash",
-        operation=Operation.HOSTED_INFERENCE,
-    )
+    selection = runtime_config.selection.primary
     registry.resolve(selection)
 
     request = GenerationRequest(
@@ -109,14 +102,17 @@ async def main():
     response = await adapter.generate(request)
     print(response.output_text)
 
+
 asyncio.run(main())
 ```
 
-Use the exact model ID returned by live discovery or selected by the user. The adapter does not choose a default, retry on a different model, or switch providers. This example uses a hosted API and may incur provider charges.
+Change the YAML selection to another configured provider, such as `moonshot` or `openrouter`, and set that provider's credential environment variable. The factory constructs only the selected provider. It does not load credential values from YAML, choose a model, execute fallback, or claim unimplemented protocols such as `transformers` are supported.
 
-For OpenRouter, use `provider_id="openrouter"`, `base_url="https://openrouter.ai/api/v1"`, and the `OPENROUTER_API_KEY` environment variable.
+The example uses hosted APIs and may incur provider charges. The generic adapter is text-only; image/video support indicated by upstream model catalogs is not exposed by this adapter.
 
-For Moonshot/Kimi, the model-list API omits the explicit modality arrays used by DeepSeek and OpenRouter. The adapter therefore requires explicit provider-specific defaults based on the documented text chat API:
+## Core API: direct provider construction
+
+For applications that manage their own settings, instantiate the generic adapter directly:
 
 ```python
 from agroguardai import OpenAICompatibleAdapter
@@ -130,7 +126,7 @@ adapter = OpenAICompatibleAdapter.from_env(
 )
 ```
 
-Use the endpoint and key for the same Kimi/Moonshot account region. The example uses the international API endpoint. The catalog defaults apply only when modality fields are absent and do not enable image or video requests. See [Provider Adapters](docs/PROVIDER_ADAPTERS.md) for details.
+Provider-specific modality defaults apply only when the upstream model catalog omits those fields. Explicit catalog metadata always takes precedence. See [Provider Adapters](docs/PROVIDER_ADAPTERS.md).
 
 ## Project documentation
 
@@ -150,7 +146,7 @@ Use the endpoint and key for the same Kimi/Moonshot account region. The example 
 
 ## Repository layout
 
-- `src/agroguardai/` — typed model contracts, registry, configuration loader, and provider adapters.
+- `src/agroguardai/` — typed model contracts, registry, provider config loader, and provider adapters.
 - `configs/` — example model and experiment configurations.
 - `data/` — schemas, source metadata, and annotation guidance; no legacy dataset is released yet.
 - `docs/` — architecture, governance, provider, and research documentation.

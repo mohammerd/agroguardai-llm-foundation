@@ -46,8 +46,8 @@ def test_loads_repository_model_example():
     config = load_selection_config(config_path)
 
     assert config.primary == ModelSelection(
-        provider_id="PROVIDER_ID",
-        model_id="EXACT_PROVIDER_MODEL_ID",
+        provider_id="deepseek",
+        model_id="REPLACE_WITH_EXACT_MODEL_ID",
         operation=Operation.HOSTED_INFERENCE,
     )
     assert config.fallback_enabled is False
