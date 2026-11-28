@@ -40,19 +40,26 @@ class SelectionConfig:
     ordered_fallbacks: tuple[FallbackModel, ...] = ()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.primary, ModelSelection):
+            raise ConfigurationError("selection.primary must be a ModelSelection.")
         if not isinstance(self.fallback_enabled, bool):
             raise ConfigurationError("fallback.enabled must be a boolean.")
-        if not self.fallback_enabled and self.ordered_fallbacks:
+        fallbacks = tuple(self.ordered_fallbacks)
+        if any(not isinstance(item, FallbackModel) for item in fallbacks):
+            raise ConfigurationError("ordered_fallbacks must contain FallbackModel entries.")
+        object.__setattr__(self, "ordered_fallbacks", fallbacks)
+
+        if not self.fallback_enabled and fallbacks:
             raise ConfigurationError(
                 "Fallback candidates were provided while fallback is disabled. "
                 "Remove them or explicitly set fallback.enabled to true."
             )
-        if self.fallback_enabled and not self.ordered_fallbacks:
+        if self.fallback_enabled and not fallbacks:
             raise ConfigurationError(
                 "Fallback is enabled but ordered_candidates is empty. "
                 "Provide an explicit ordered list or disable fallback."
             )
-        keys = [(item.provider_id, item.model_id) for item in self.ordered_fallbacks]
+        keys = [(item.provider_id, item.model_id) for item in fallbacks]
         primary_key = (self.primary.provider_id, self.primary.model_id)
         if primary_key in keys or len(keys) != len(set(keys)):
             raise ConfigurationError(
