@@ -16,16 +16,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Unt
 - Typed model descriptors, explicit model selection, and deterministic in-memory registry.
 - Strict safe-YAML selection loader and opt-in ordered fallback validation.
 - Shared provider adapter protocol and exact provider/model response checks.
-- Tests for registry errors, operation/terms gates, configuration errors, and no-substitution behavior.
+- Generic OpenAI-compatible hosted text adapter with model discovery and chat completions.
+- HTTPX transport integration with typed authentication, rate-limit, timeout, connection, server, request, and protocol errors.
+- Mocked HTTP tests for DeepSeek-style and OpenRouter-style catalog formats, exact model requests, credential handling, and response identity checks.
+- Provider adapter endpoint and security documentation.
 
 ### Changed
 
-- Package API version advanced to 0.2.0.
-- README and roadmap now distinguish implemented registry contracts from planned provider integrations.
+- Package API version advanced to 0.3.0.
+- README and architecture now distinguish implemented hosted text inference from planned provider, local-runtime, and multimodal integrations.
 
 ### Planned
 
-- Concrete hosted and local provider adapters.
+- Live provider smoke tests with opt-in credentials.
+- Dedicated adapters for providers with different API semantics.
+- Local open-weight runtime and streaming/tool-use contracts.
 - Versioned data validation and experiment manifest implementation.
 - Multilingual agricultural benchmark and model/dataset releases.
 
