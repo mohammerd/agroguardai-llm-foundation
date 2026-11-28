@@ -28,9 +28,13 @@ This roadmap describes evidence-gated milestones. Dates are intentionally omitte
 ## M2 — Hosted and local provider adapters
 
 - [x] Generic OpenAI-compatible hosted adapter for text model discovery and chat completions
+- [x] Configuration-driven construction of the explicitly selected OpenAI-compatible provider
+- [x] Runtime environment-variable secret lookup; no key values in YAML
+- [x] Strict rejection of unsupported provider protocols
 - [x] Mocked HTTP tests for DeepSeek-style and OpenRouter-style catalog responses
 - [x] Moonshot/Kimi model-list compatibility using explicit provider-specific text modality defaults
 - [x] Mocked HTTP tests for request construction, authentication, rate limits, errors, and model identity
+- [ ] Unified request orchestration (load config, discover/register catalog, resolve exact selection, call adapter, validate response)
 - [ ] Verify live credentials and run opt-in smoke tests for each configured provider
 - [ ] Dedicated adapters for providers with API semantics that differ from chat completions
 - [ ] Local open-weight runtime adapter
