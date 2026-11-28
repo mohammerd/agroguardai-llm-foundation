@@ -19,12 +19,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Unt
 - Generic OpenAI-compatible hosted text adapter with model discovery and chat completions.
 - HTTPX transport integration with typed authentication, rate-limit, timeout, connection, server, request, and protocol errors.
 - Mocked HTTP tests for DeepSeek-style and OpenRouter-style catalog formats, exact model requests, credential handling, and response identity checks.
+- Provider-specific catalog modality defaults for documented APIs such as Moonshot/Kimi that do not return modality arrays.
+- Mocked Moonshot/Kimi model discovery coverage for `context_length`, explicit provider defaults, and refusal to override stated catalog capabilities.
 - Provider adapter endpoint and security documentation.
 
 ### Changed
 
-- Package API version advanced to 0.3.0.
-- README and architecture now distinguish implemented hosted text inference from planned provider, local-runtime, and multimodal integrations.
+- Package API version advanced to 0.3.1.
+- README and architecture distinguish implemented hosted text inference from planned local-runtime and multimodal integrations.
 
 ### Planned
 
