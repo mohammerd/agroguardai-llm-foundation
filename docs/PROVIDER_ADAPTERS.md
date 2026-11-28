@@ -6,6 +6,7 @@ The package includes a generic OpenAI-compatible hosted adapter. It supports the
 
 - model discovery through a configurable models-list route returning a JSON object with a data array and model IDs;
 - conservative catalog registration: only models that explicitly advertise text input and text output are included;
+- optional provider-specific default modality metadata for APIs whose documented model catalog omits modality arrays;
 - chat-completions requests with an exact selected model ID;
 - bearer-token authentication from an explicitly supplied key or a named environment variable;
 - normalized text, finish reason, and token-usage responses;
@@ -16,12 +17,13 @@ The adapter does not implement streaming, tool calls, image/audio/video input, e
 
 ## Verified example endpoints
 
-The following endpoints are documented by their providers and match this adapter's expected routes:
+The following endpoints are documented by their providers and can be configured with this adapter's expected routes:
 
-| Provider | API base URL | Model-list route | Chat-completions route |
-|---|---|---|---|
-| DeepSeek | `https://api.deepseek.com` | `/models` | `/chat/completions` |
-| OpenRouter | `https://openrouter.ai/api/v1` | `/models` | `/chat/completions` |
+| Provider | API base URL | Model-list route | Chat-completions route | Catalog behavior |
+|---|---|---|---|---|
+| DeepSeek | `https://api.deepseek.com` | `models` | `chat/completions` | Explicit input/output modality arrays |
+| OpenRouter | `https://openrouter.ai/api/v1` | `models` | `chat/completions` | Modality arrays under `architecture` |
+| Moonshot / Kimi API | `https://api.moonshot.ai/v1` | `models` | `chat/completions` | Catalog exposes context length and input feature flags; text defaults must be explicitly configured |
 
 Provider documentation:
 
@@ -30,8 +32,11 @@ Provider documentation:
 - [DeepSeek: model names and API base URLs](https://api-docs.deepseek.com/quick_start/pricing/)
 - [OpenRouter: model catalog](https://openrouter.ai/docs/api/api-reference/models/get-models)
 - [OpenRouter: make a chat-completions request](https://learn.openrouter.ai/courses/first-request/make-a-request)
+- [Moonshot / Kimi: list models](https://aelkimi.com/list-models.html)
+- [Moonshot / Kimi: API platform FAQ and regional endpoints](https://www.aelkimi.com/faq-2.html)
+- [Kimi: OpenAI-compatible API quickstart](https://www.kimi.ai/resources/model-api)
 
-This is endpoint documentation, not a claim that AgroGuardAI has tested every model listed by those services. The adapter is provider-agnostic at the protocol level; each configured endpoint still needs an integration test and a capability/terms review before being treated as supported.
+This is endpoint documentation, not a claim that AgroGuardAI has tested every model listed by those services. Mocked integration tests exercise representative documented response shapes. Live credentials and provider-specific smoke tests remain opt-in and have not been claimed as completed.
 
 ## Example: DeepSeek
 
@@ -61,12 +66,11 @@ async def main():
         base_url="https://api.deepseek.com",
     )
 
-    # Refresh catalog metadata from the provider.
     catalog = await adapter.discover_models()
     registry = ModelRegistry()
     registry.register_provider_catalog(adapter.provider_id, catalog)
 
-    # The application should pass this exact ID from the user's model selector.
+    # Use the exact ID selected by the user from the refreshed catalog.
     selected_model_id = "deepseek-flash"
     selection = ModelSelection(
         provider_id="deepseek",
@@ -105,11 +109,34 @@ adapter = OpenAICompatibleAdapter.from_env(
 
 OpenRouter's model catalog can contain models hosted by many upstream organizations. The adapter's provider identity is still `openrouter`, because that is the API endpoint selected by the user. The upstream model ID remains the exact model ID returned by the catalog.
 
+## Example: Moonshot / Kimi API
+
+Moonshot's model-list response documents `id`, `context_length`, and feature flags such as `supports_image_in` and `supports_video_in`; it does not use the explicit modality arrays returned by DeepSeek or OpenRouter. The provider-specific defaults below enable only the text modality supported by this adapter. They do not turn on image/video requests.
+
+```bash
+export MOONSHOT_API_KEY="your-key"
+```
+
+```python
+from agroguardai import OpenAICompatibleAdapter
+
+adapter = OpenAICompatibleAdapter.from_env(
+    api_key_env="MOONSHOT_API_KEY",
+    provider_id="moonshot",
+    base_url="https://api.moonshot.ai/v1",
+    catalog_default_input_modalities=("text",),
+    catalog_default_output_modalities=("text",),
+)
+```
+
+Use the regional endpoint and credential pair that belongs to the user's Kimi/Moonshot account. The international endpoint above is not interchangeable with the mainland China platform. Use the exact model ID returned by that account's model-list endpoint.
+
 ## Security and behavior guarantees
 
 - Credentials are supplied at runtime and are not written into configs or logged.
 - Remote endpoints must use HTTPS. Plain HTTP is permitted only for localhost/loopback self-hosted development.
-- Model catalog entries that do not explicitly advertise text input and text output are excluded from this text-only adapter.
+- Model catalog entries that do not explicitly advertise text input and text output are excluded by default.
+- Provider-specific text modality defaults are opt-in and apply only when a catalog field is omitted; they never override explicit provider metadata.
 - The adapter never chooses a model. The caller must provide a provider and exact model ID.
 - The adapter rejects requests naming a different provider.
 - The adapter checks that the response's model ID exactly matches the requested model ID.
