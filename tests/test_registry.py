@@ -4,6 +4,7 @@ from agroguardai.errors import (
     DuplicateModelError,
     ModelTermsError,
     ModelUnavailableError,
+    ProviderIdentityMismatchError,
     UnknownModelError,
     UnknownProviderError,
     UnsupportedOperationError,
@@ -78,9 +79,7 @@ def test_unavailable_model_fails():
 
 def test_unsupported_operation_fails():
     registry = ModelRegistry()
-    registry.register(
-        descriptor(operations=frozenset({Operation.LOCAL_INFERENCE}))
-    )
+    registry.register(descriptor(operations=frozenset({Operation.LOCAL_INFERENCE})))
 
     with pytest.raises(UnsupportedOperationError):
         registry.resolve(selection(operation=Operation.FINE_TUNING))
@@ -130,3 +129,22 @@ def test_register_many_is_atomic_when_batch_contains_duplicates():
 
     registry.register_many([first, second])
     assert [item.model_id for item in registry.list_models()] == ["orchard-7b", "second"]
+
+
+def test_provider_catalog_rejects_mismatched_provider_identity_atomically():
+    registry = ModelRegistry()
+
+    with pytest.raises(ProviderIdentityMismatchError):
+        registry.register_provider_catalog("provider-a", [descriptor(provider_id="provider-b")])
+
+    assert registry.provider_ids == ()
+    assert registry.list_models() == ()
+
+
+def test_empty_provider_catalog_is_distinct_from_unknown_provider():
+    registry = ModelRegistry()
+    registry.register_provider_catalog("empty-provider", [])
+
+    assert registry.provider_ids == ("empty-provider",)
+    with pytest.raises(UnknownModelError, match="No substitute"):
+        registry.resolve(selection(provider_id="empty-provider", model_id="not-listed"))
