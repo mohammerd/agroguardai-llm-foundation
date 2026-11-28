@@ -8,6 +8,7 @@ from .errors import (
     DuplicateModelError,
     ModelTermsError,
     ModelUnavailableError,
+    ProviderIdentityMismatchError,
     UnknownModelError,
     UnknownProviderError,
     UnsupportedOperationError,
@@ -16,7 +17,7 @@ from .models import ModelDescriptor, ModelSelection, Operation, TermsStatus
 
 
 class ModelRegistry:
-    """In-memory registry keyed by the exact provider and model identifiers.
+    """In-memory registry keyed by exact provider and model identifiers.
 
     The registry never chooses a default model and never substitutes another
     provider/model. Catalog data must be registered from a verified provider
@@ -25,6 +26,7 @@ class ModelRegistry:
 
     def __init__(self) -> None:
         self._models: dict[tuple[str, str], ModelDescriptor] = {}
+        self._providers: set[str] = set()
 
     def register(self, descriptor: ModelDescriptor) -> None:
         """Register one descriptor without replacing an existing entry."""
@@ -34,6 +36,7 @@ class ModelRegistry:
             raise DuplicateModelError(
                 f"Model {descriptor.provider_id}/{descriptor.model_id} is already registered."
             )
+        self._providers.add(descriptor.provider_id)
         self._models[key] = descriptor
 
     def register_many(self, descriptors: Iterable[ModelDescriptor]) -> None:
@@ -43,13 +46,49 @@ class ModelRegistry:
         keys = [(item.provider_id, item.model_id) for item in batch]
         if len(keys) != len(set(keys)):
             raise DuplicateModelError("The model batch contains duplicate provider/model IDs.")
-        existing = set(self._models)
-        duplicate_keys = existing.intersection(keys)
+        duplicate_keys = set(self._models).intersection(keys)
         if duplicate_keys:
             provider_id, model_id = sorted(duplicate_keys)[0]
             raise DuplicateModelError(f"Model {provider_id}/{model_id} is already registered.")
+
+        # Validation completes before any registry state is mutated.
         for descriptor in batch:
             self._models[(descriptor.provider_id, descriptor.model_id)] = descriptor
+            self._providers.add(descriptor.provider_id)
+
+    def register_provider_catalog(
+        self,
+        provider_id: str,
+        descriptors: Iterable[ModelDescriptor],
+    ) -> None:
+        """Register a provider catalog and verify every record's provider identity.
+
+        Empty catalogs are retained as registered providers, so callers receive
+        an unknown-model error instead of an unknown-provider error.
+        """
+
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            raise ValueError("provider_id must be a non-empty string.")
+        if provider_id != provider_id.strip() or any(character.isspace() for character in provider_id):
+            raise ValueError("provider_id must not contain whitespace.")
+
+        batch = list(descriptors)
+        mismatched = [item.model_id for item in batch if item.provider_id != provider_id]
+        if mismatched:
+            raise ProviderIdentityMismatchError(
+                f"Catalog for '{provider_id}' contained models from another provider: "
+                f"{sorted(mismatched)}."
+            )
+
+        # register_many validates duplicate keys before mutating the model map.
+        self.register_many(batch)
+        self._providers.add(provider_id)
+
+    @property
+    def provider_ids(self) -> tuple[str, ...]:
+        """Return registered provider IDs in deterministic order."""
+
+        return tuple(sorted(self._providers))
 
     def list_models(self, provider_id: str | None = None) -> tuple[ModelDescriptor, ...]:
         """Return a stable, sorted snapshot of registered model descriptors."""
@@ -62,18 +101,13 @@ class ModelRegistry:
     def resolve(self, selection: ModelSelection) -> ModelDescriptor:
         """Resolve exactly one selected model and enforce advertised capabilities."""
 
-        provider_models = {
-            model_id: descriptor
-            for (registered_provider, model_id), descriptor in self._models.items()
-            if registered_provider == selection.provider_id
-        }
-        if not provider_models:
+        if selection.provider_id not in self._providers:
             raise UnknownProviderError(
-                f"Provider '{selection.provider_id}' has no registered models. "
+                f"Provider '{selection.provider_id}' has no registered catalog. "
                 "Refresh or register its catalog; no alternative provider will be selected."
             )
 
-        descriptor = provider_models.get(selection.model_id)
+        descriptor = self._models.get((selection.provider_id, selection.model_id))
         if descriptor is None:
             raise UnknownModelError(
                 f"Exact model '{selection.model_id}' is not registered for provider "
