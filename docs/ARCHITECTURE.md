@@ -2,19 +2,19 @@
 
 ## Design goal
 
-Build a modular agricultural AI research platform that allows users to select the exact model/provider while AgroGuardAI supplies the domain-specific data governance, evaluation, safety controls, and reproducible experiment tooling.
+Build a modular agricultural AI research platform that lets users select the exact model/provider while AgroGuardAI supplies domain-specific data governance, evaluation, safety controls, and reproducible experiment tooling.
 
 The architecture must not depend on one model vendor or hide model substitution.
 
 ## Logical components
 
-1. **Model registry** — stores provider/model identifiers, supported operations, modality capabilities, terms-review status, and discovery timestamps.
-2. **Provider adapters** — translate a common internal request into each provider's API or local-runtime interface. Adapters must expose capabilities and normalize errors without silently changing models.
-3. **Execution layer** — runs hosted inference or local inference/fine-tuning as distinct operations. Credentials remain outside source control and are injected at runtime.
-4. **Data pipeline** — validates schemas, tracks provenance and consent/rights, preserves annotation statuses, detects duplicates, and creates leakage-resistant versioned splits.
-5. **Agricultural safety layer** — checks task-specific constraints, evidence requirements, uncertainty, and referral conditions. It must fail safely when required information is missing.
-6. **Evaluation layer** — evaluates each language and task independently, records exact experiment manifests, and generates reports.
-7. **Release layer** — packages software, dataset releases, and model artifacts separately with their own version, license, provenance, and documentation.
+1. **Model registry** — stores exact provider/model identifiers, supported operations, modality capabilities, availability, and terms-review status. The in-memory registry and core model contracts are implemented.
+2. **Provider adapters** — translate a common internal request into each provider's API or local-runtime interface. A shared async protocol is implemented; concrete provider integrations are not yet released.
+3. **Execution layer** — runs hosted inference or local inference/fine-tuning as distinct operations. It must preserve exact model selection and keep credentials outside source control. This layer is not yet implemented.
+4. **Data pipeline** — validates schemas, tracks provenance and consent/rights, preserves annotation statuses, detects duplicates, and creates leakage-resistant versioned splits. This layer is not yet implemented.
+5. **Agricultural safety layer** — checks task-specific constraints, evidence requirements, uncertainty, and referral conditions. It must fail safely when required information is missing. This layer is not yet implemented.
+6. **Evaluation layer** — evaluates each language and task independently, records exact experiment manifests, and generates reports. Documentation and templates exist; executable benchmark tooling is still planned.
+7. **Release layer** — packages software, dataset releases, and model artifacts separately with their own version, license, provenance, and documentation. Release governance is documented; model/dataset releases do not yet exist.
 
 ## Request flow
 
@@ -22,9 +22,12 @@ The architecture must not depend on one model vendor or hide model substitution.
 User selects provider + exact model ID
                 |
                 v
-       Registry validation
+       Strict configuration
                 |
-       capability / terms check
+                v
+       Model registry validation
+                |
+       capability / terms checks
                 |
                 v
        Explicit provider adapter
@@ -39,21 +42,17 @@ User selects provider + exact model ID
      Response + traceable metadata
 ```
 
-If the user has not selected a model, the request must fail with a clear configuration error. If the selected model is unavailable, return an error. Fallback is disabled unless the user has explicitly configured an ordered list. Every fallback candidate must be visible and logged before execution.
+If the user has not selected a model, configuration must fail. If the selected model is unavailable or unsupported, return an error. Fallback is disabled unless the user explicitly configures an ordered list. The current package validates explicit fallback candidates but does not execute fallback because the execution layer has not been implemented.
 
-## Provider adapter contract
+## Implemented provider contract
 
-An adapter should provide:
+The `ProviderAdapter` protocol requires:
 
-- stable provider identity and model discovery where supported;
-- exact model-ID validation;
-- explicit capability declarations (text, image, audio, video, tools, context limits);
-- operation support: hosted inference, local inference, fine-tuning, export;
-- consistent timeout, rate-limit, authentication, and unavailable-model errors;
-- bounded retries that do not switch model/provider;
-- no credential or private prompt logging.
+- a stable `provider_id`;
+- asynchronous `discover_models()` returning exact `ModelDescriptor` records;
+- asynchronous `generate(request)` accepting a `GenerationRequest` and returning a normalized `GenerationResponse`.
 
-A hosted API integration must not claim local weights or fine-tuning support. Terms and license metadata must be verified before a model is used for training or its artifacts are redistributed.
+Catalog registration checks that every discovered descriptor belongs to the provider that supplied it. The response validation helper rejects provider/model identity mismatches. Concrete adapters and the execution component must call these checks; the protocol alone does not make vendor integrations safe.
 
 ## Data flow and release boundaries
 
@@ -63,4 +62,6 @@ Model weights, datasets, and application code do not automatically share one lic
 
 ## Current implementation status
 
-This document describes the target architecture. The current repository contains the initial Python package scaffold and governance documentation; provider adapters, model execution, data pipelines, and safety enforcement are not yet implemented. Track delivery in [ROADMAP.md](ROADMAP.md).
+Implemented: typed model descriptors and selections, operation/modality metadata, in-memory registry, strict safe-YAML selection loader, explicit fallback-policy validation, provider adapter protocol, and exact-response identity checks.
+
+Not yet implemented: concrete provider integrations, model discovery refresh, hosted/local execution, training pipeline, dataset engineering, and agricultural safety enforcement. Track delivery in [ROADMAP.md](ROADMAP.md).
