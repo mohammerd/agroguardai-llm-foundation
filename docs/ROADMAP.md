@@ -21,20 +21,24 @@ This roadmap describes evidence-gated milestones. Dates are intentionally omitte
 - [x] Explicit selection errors; no implicit default or fallback
 - [x] Unit tests for unknown providers, unknown models, unavailable models, terms gates, and unsupported operations
 - [x] Provider adapter protocol and exact-response identity validation
-- [ ] Structured experiment manifest implementation
+- [x] Deterministic in-memory model registry
 
-**Exit criteria:** model choice is deterministic, inspectable, and test-covered without requiring a paid provider. This milestone does not include live provider calls.
+**Exit criteria:** model choice is deterministic, inspectable, and test-covered without requiring a paid provider. This milestone does not include model training.
 
-## M2 — Provider adapters
+## M2 — Hosted and local provider adapters
 
+- [x] Generic OpenAI-compatible hosted adapter for text model discovery and chat completions
+- [x] Mocked HTTP tests for discovery, request construction, errors, and response identity
+- [x] DeepSeek and OpenRouter endpoint configurations documented against their current API references
+- [ ] Verify live credentials and run opt-in smoke tests for each configured provider
+- [ ] Dedicated Moonshot/Kimi adapter or verified configuration
+- [ ] Additional provider adapters where the API contract differs
 - [ ] Local open-weight runtime adapter
-- [ ] DeepSeek hosted adapter
-- [ ] Moonshot/Kimi hosted adapter
-- [ ] Qwen and Gemma local model registrations where current terms and runtimes permit
-- [ ] Additional providers through the same adapter contract
-- [ ] Mock-server contract tests and safe credential handling
+- [ ] Streaming and tool-call interfaces
+- [ ] Image, audio, and video adapter contracts
+- [ ] Provider contract-test suite shared across integrations
 
-**Exit criteria:** each adapter passes the same contract tests; unavailable providers produce clear errors and never trigger silent substitution.
+**Exit criteria:** each supported integration has a provider-specific smoke-test record and common contract tests; capability declarations come from verified provider metadata; no provider switch occurs without an explicit user fallback policy.
 
 ## M3 — Dataset engineering
 
@@ -56,7 +60,7 @@ This roadmap describes evidence-gated milestones. Dates are intentionally omitte
 - [ ] Model cards and dataset cards populated for actual releases
 - [ ] Independent external review of methodology
 
-**Exit criteria:** results can be independently reproduced from published manifests and permissible artifacts; no broad quality claims without evidence.
+**Exit criteria:** results can be reproduced from published manifests and permissible artifacts; no broad quality claims without evidence.
 
 ## M5 — First reproducible model experiment
 
