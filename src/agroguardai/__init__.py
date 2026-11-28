@@ -12,6 +12,7 @@ from .models import (
     TermsStatus,
     validate_provider_response,
 )
+from .openai_compatible import OpenAICompatibleAdapter
 from .providers import ProviderAdapter
 from .registry import ModelRegistry
 
@@ -25,6 +26,7 @@ __all__ = [
     "ModelDescriptor",
     "ModelRegistry",
     "ModelSelection",
+    "OpenAICompatibleAdapter",
     "Operation",
     "ProviderAdapter",
     "SelectionConfig",
