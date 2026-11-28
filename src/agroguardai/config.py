@@ -1,15 +1,21 @@
-"""Safe YAML loading and strict validation for model-selection configuration."""
+"""Safe YAML loading and runtime construction for model selection and providers."""
 
 from __future__ import annotations
 
+import os
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
+import httpx
 import yaml
 
 from .errors import ConfigurationError
 from .models import ModelDescriptor, ModelSelection
+from .openai_compatible import OpenAICompatibleAdapter
 from .registry import ModelRegistry
 
 
@@ -86,6 +92,65 @@ class SelectionConfig:
         return tuple(registry.resolve(selection) for selection in selections)
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderConfig:
+    """Provider identity, protocol, and non-secret configuration values."""
+
+    provider_id: str
+    protocol: str
+    values: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.provider_id, str)
+            or not self.provider_id.strip()
+            or self.provider_id != self.provider_id.strip()
+            or any(character.isspace() for character in self.provider_id)
+        ):
+            raise ConfigurationError("Provider IDs must be non-empty identifiers without spaces.")
+        if not isinstance(self.protocol, str) or not self.protocol.strip():
+            raise ConfigurationError(
+                f"Provider '{self.provider_id}' must define a non-empty protocol."
+            )
+        if not isinstance(self.values, Mapping):
+            raise ConfigurationError(f"Provider '{self.provider_id}' settings must be a mapping.")
+        object.__setattr__(self, "values", MappingProxyType(dict(self.values)))
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRuntimeConfig:
+    """Complete selection plus provider configuration for one runtime."""
+
+    selection: SelectionConfig
+    providers: Mapping[str, ProviderConfig]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.selection, SelectionConfig):
+            raise ConfigurationError("selection must be a SelectionConfig.")
+        if not isinstance(self.providers, Mapping):
+            raise ConfigurationError("providers must be a mapping.")
+
+        providers = dict(self.providers)
+        for provider_id, provider in providers.items():
+            if not isinstance(provider, ProviderConfig) or provider.provider_id != provider_id:
+                raise ConfigurationError(
+                    f"Provider entry '{provider_id}' must contain matching ProviderConfig data."
+                )
+
+        required_provider_ids = {self.selection.primary.provider_id}
+        if self.selection.fallback_enabled:
+            required_provider_ids.update(
+                candidate.provider_id for candidate in self.selection.ordered_fallbacks
+            )
+        missing = required_provider_ids - providers.keys()
+        if missing:
+            raise ConfigurationError(
+                f"No provider configuration exists for selected provider(s): {sorted(missing)}."
+            )
+
+        object.__setattr__(self, "providers", MappingProxyType(providers))
+
+
 def _expect_mapping(value: Any, field_name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ConfigurationError(f"'{field_name}' must be a YAML mapping.")
@@ -158,9 +223,109 @@ def selection_config_from_mapping(document: dict[str, Any]) -> SelectionConfig:
     )
 
 
-def load_selection_config(path: str | Path) -> SelectionConfig:
-    """Load a YAML file with SafeLoader and validate only its selection policy."""
+def model_runtime_config_from_mapping(document: dict[str, Any]) -> ModelRuntimeConfig:
+    """Parse model selection and provider definitions without reading secrets."""
 
+    root = _expect_mapping(document, "document")
+    _reject_unknown_keys(root, {"selection", "providers"}, "document")
+    selection = selection_config_from_mapping(root)
+
+    provider_values = _expect_mapping(root.get("providers", {}), "providers")
+    providers: dict[str, ProviderConfig] = {}
+    for provider_id, raw_values in provider_values.items():
+        values = _expect_mapping(raw_values, f"providers.{provider_id}")
+        protocol = values.get("protocol")
+        if not isinstance(protocol, str) or not protocol.strip():
+            raise ConfigurationError(
+                f"Provider '{provider_id}' must define a non-empty protocol."
+            )
+        settings = {key: value for key, value in values.items() if key != "protocol"}
+        providers[provider_id] = ProviderConfig(
+            provider_id=provider_id,
+            protocol=protocol,
+            values=settings,
+        )
+
+    return ModelRuntimeConfig(selection=selection, providers=providers)
+
+
+def build_selected_adapter(
+    config: ModelRuntimeConfig,
+    *,
+    environment: Mapping[str, str] | None = None,
+    client: httpx.AsyncClient | None = None,
+) -> OpenAICompatibleAdapter:
+    """Construct only the selected provider adapter from validated configuration.
+
+    Secrets are resolved from the supplied environment mapping (or the process
+    environment by default). Values are never loaded from YAML or logged.
+    The first implementation supports the OpenAI-compatible hosted protocol.
+    """
+
+    if not isinstance(config, ModelRuntimeConfig):
+        raise ConfigurationError("config must be a ModelRuntimeConfig.")
+
+    provider_id = config.selection.primary.provider_id
+    provider = config.providers.get(provider_id)
+    if provider is None:
+        raise ConfigurationError(f"No configuration exists for selected provider '{provider_id}'.")
+    if provider.protocol != "openai-compatible":
+        raise ConfigurationError(
+            f"Provider '{provider_id}' uses unsupported protocol '{provider.protocol}'. "
+            "This runtime currently supports 'openai-compatible' providers only."
+        )
+
+    values = dict(provider.values)
+    _reject_unknown_keys(
+        values,
+        {"base_url", "api_key_env", "timeout", "chat_completions_path", "discovery"},
+        f"providers.{provider_id}",
+    )
+
+    base_url = values.get("base_url")
+    if not isinstance(base_url, str) or not base_url.strip():
+        raise ConfigurationError(f"Provider '{provider_id}' must define an absolute base_url.")
+
+    api_key_env = values.get("api_key_env")
+    api_key: str | None = None
+    env = os.environ if environment is None else environment
+    if api_key_env is not None:
+        if (
+            not isinstance(api_key_env, str)
+            or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", api_key_env)
+        ):
+            raise ConfigurationError(
+                f"Provider '{provider_id}' api_key_env must be a valid environment variable name."
+            )
+        api_key = env.get(api_key_env)
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise ConfigurationError(
+                f"Required provider credential environment variable '{api_key_env}' is not set."
+            )
+
+    discovery = _expect_mapping(values.get("discovery", {}), f"providers.{provider_id}.discovery")
+    _reject_unknown_keys(
+        discovery,
+        {"endpoint", "default_input_modalities", "default_output_modalities"},
+        f"providers.{provider_id}.discovery",
+    )
+    model_list_path = discovery.get("endpoint", "models")
+    chat_completions_path = values.get("chat_completions_path", "chat/completions")
+
+    return OpenAICompatibleAdapter(
+        provider_id=provider_id,
+        base_url=base_url,
+        api_key=api_key,
+        timeout=values.get("timeout", 30.0),
+        model_list_path=model_list_path,
+        chat_completions_path=chat_completions_path,
+        catalog_default_input_modalities=discovery.get("default_input_modalities"),
+        catalog_default_output_modalities=discovery.get("default_output_modalities"),
+        client=client,
+    )
+
+
+def _load_yaml_document(path: str | Path) -> dict[str, Any]:
     config_path = Path(path)
     try:
         with config_path.open("r", encoding="utf-8") as config_file:
@@ -170,6 +335,16 @@ def load_selection_config(path: str | Path) -> SelectionConfig:
     except yaml.YAMLError as exc:
         raise ConfigurationError(f"Invalid YAML in model configuration '{config_path}'.") from exc
 
-    if not isinstance(document, dict):
-        raise ConfigurationError("Model configuration must contain a YAML mapping.")
-    return selection_config_from_mapping(document)
+    return _expect_mapping(document, "document")
+
+
+def load_selection_config(path: str | Path) -> SelectionConfig:
+    """Load a YAML file and validate only its model-selection policy."""
+
+    return selection_config_from_mapping(_load_yaml_document(path))
+
+
+def load_model_config(path: str | Path) -> ModelRuntimeConfig:
+    """Load the complete model-selection and provider configuration."""
+
+    return model_runtime_config_from_mapping(_load_yaml_document(path))
