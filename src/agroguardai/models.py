@@ -6,10 +6,10 @@ Provider adapters must implement the shared protocol in :mod:`agroguardai.provid
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Iterable
 from urllib.parse import urlparse
 
 from .errors import ConfigurationError, ProviderResponseMismatchError
