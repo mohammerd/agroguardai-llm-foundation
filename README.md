@@ -41,6 +41,8 @@ registry.register(
         display_name="Agro Model 3B",
         operations=frozenset({Operation.LOCAL_INFERENCE}),
         terms_status=TermsStatus.REVIEWED,
+        terms_url="https://example.org/model-license",
+        terms_reviewed_at="2026-11-28T12:00:00Z",
     )
 )
 
@@ -54,7 +56,7 @@ selected = registry.resolve(
 print(selected.model_id)
 ```
 
-This validates metadata and selection. It does not download weights, call a provider, or run inference. Concrete adapters will be added through the shared `ProviderAdapter` protocol.
+This validates metadata and selection. It does not download weights, call a provider, or run inference. Concrete adapters will be added through the shared `ProviderAdapter` protocol. A model cannot be marked reviewed or restricted without an HTTPS terms source and a timezone-aware review timestamp.
 
 ## Project documentation
 
