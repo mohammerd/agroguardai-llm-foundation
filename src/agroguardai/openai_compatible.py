@@ -7,7 +7,7 @@ Provider-specific capabilities must be discovered and verified separately.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import urlparse
 
@@ -41,6 +41,11 @@ class OpenAICompatibleAdapter:
     The caller supplies a stable provider ID, API base URL, and optional key.
     The base URL may include a version prefix, for example the OpenRouter
     API prefix. Credentials are held only in memory and are never logged.
+
+    Some providers expose complete input/output modality arrays in their model
+    catalog; others document a text chat API but omit modality fields. For the
+    latter, callers may supply provider-specific defaults. No modality defaults
+    are enabled globally.
     """
 
     def __init__(
@@ -52,6 +57,8 @@ class OpenAICompatibleAdapter:
         timeout: float = 30.0,
         model_list_path: str = "models",
         chat_completions_path: str = "chat/completions",
+        catalog_default_input_modalities: Sequence[Modality | str] | None = None,
+        catalog_default_output_modalities: Sequence[Modality | str] | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         if not isinstance(provider_id, str) or not provider_id.strip():
@@ -103,7 +110,30 @@ class OpenAICompatibleAdapter:
         self._timeout = float(timeout)
         self._model_list_path = model_list_path
         self._chat_completions_path = chat_completions_path
+        self._catalog_default_input_modalities = self._validate_modality_defaults(
+            catalog_default_input_modalities,
+            "catalog_default_input_modalities",
+        )
+        self._catalog_default_output_modalities = self._validate_modality_defaults(
+            catalog_default_output_modalities,
+            "catalog_default_output_modalities",
+        )
         self._client = client
+
+    @staticmethod
+    def _validate_modality_defaults(
+        values: Sequence[Modality | str] | None,
+        field_name: str,
+    ) -> frozenset[Modality] | None:
+        if values is None:
+            return None
+        if isinstance(values, (str, bytes)) or not isinstance(values, Sequence) or not values:
+            raise ConfigurationError(f"{field_name} must be a non-empty sequence or None.")
+        try:
+            return frozenset(Modality(value) for value in values)
+        except (TypeError, ValueError) as exc:
+            allowed = ", ".join(item.value for item in Modality)
+            raise ConfigurationError(f"{field_name} must contain values from: {allowed}.") from exc
 
     @property
     def provider_id(self) -> str:
@@ -132,12 +162,13 @@ class OpenAICompatibleAdapter:
         return cls(api_key=api_key, **kwargs)
 
     async def discover_models(self) -> tuple[ModelDescriptor, ...]:
-        """Fetch the model catalog and return only explicitly advertised text models.
+        """Fetch the model catalog and return only models this adapter can use for text.
 
         Model catalogs differ. The adapter accepts top-level input/output modality
         fields or the OpenRouter-style architecture.input_modalities/output_modalities
-        fields. Models without explicit text support are not registered by this
-        text-only adapter; they can be handled by a future modality-specific adapter.
+        fields. If a field is omitted, a provider-specific default may be used only
+        when the caller configured one based on that provider's documented contract.
+        There are no global modality assumptions.
         """
 
         response = await self._request("GET", self._model_list_path)
@@ -173,6 +204,11 @@ class OpenAICompatibleAdapter:
             output_modalities = item.get(
                 "output_modalities", architecture.get("output_modalities")
             )
+            if input_modalities is None:
+                input_modalities = self._catalog_default_input_modalities
+            if output_modalities is None:
+                output_modalities = self._catalog_default_output_modalities
+
             if not self._advertises_text(input_modalities) or not self._advertises_text(
                 output_modalities
             ):
@@ -188,6 +224,8 @@ class OpenAICompatibleAdapter:
                     model_id=model_id,
                     display_name=display_name,
                     operations=frozenset({Operation.HOSTED_INFERENCE}),
+                    # This adapter currently accepts text-only request content,
+                    # even when the upstream model supports additional modalities.
                     input_modalities=frozenset({Modality.TEXT}),
                     output_modalities=frozenset({Modality.TEXT}),
                     context_window=self._context_window(item),
