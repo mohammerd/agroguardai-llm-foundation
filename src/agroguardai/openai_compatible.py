@@ -39,8 +39,12 @@ class OpenAICompatibleAdapter:
     """Hosted adapter for providers with compatible model-list and chat routes.
 
     The caller supplies a stable provider ID, API base URL, and optional key.
-    The base URL may include a version prefix, for example the OpenRouter
-    API prefix. Credentials are held only in memory and are never logged.
+    The base URL may include a version prefix, for example the OpenRouter or
+    Moonshot API prefix. Credentials are held only in memory and are never logged.
+
+    Set catalog_models_support_chat_completions only when the provider documents
+    that every model returned by its catalog supports text chat completions, but
+    does not expose explicit input/output modality arrays. The default is False.
     """
 
     def __init__(
@@ -52,6 +56,8 @@ class OpenAICompatibleAdapter:
         timeout: float = 30.0,
         model_list_path: str = "models",
         chat_completions_path: str = "chat/completions",
+        max_output_tokens_field: str = "max_tokens",
+        catalog_models_support_chat_completions: bool = False,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         if not isinstance(provider_id, str) or not provider_id.strip():
@@ -77,6 +83,14 @@ class OpenAICompatibleAdapter:
             raise ConfigurationError("api_key must be a non-empty string or None.")
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout <= 0:
             raise ConfigurationError("timeout must be a positive number of seconds.")
+        if not isinstance(catalog_models_support_chat_completions, bool):
+            raise ConfigurationError(
+                "catalog_models_support_chat_completions must be a boolean."
+            )
+        if max_output_tokens_field not in {"max_tokens", "max_completion_tokens"}:
+            raise ConfigurationError(
+                "max_output_tokens_field must be max_tokens or max_completion_tokens."
+            )
 
         for field_name, path in (
             ("model_list_path", model_list_path),
@@ -103,6 +117,10 @@ class OpenAICompatibleAdapter:
         self._timeout = float(timeout)
         self._model_list_path = model_list_path
         self._chat_completions_path = chat_completions_path
+        self._max_output_tokens_field = max_output_tokens_field
+        self._catalog_models_support_chat_completions = (
+            catalog_models_support_chat_completions
+        )
         self._client = client
 
     @property
@@ -132,12 +150,14 @@ class OpenAICompatibleAdapter:
         return cls(api_key=api_key, **kwargs)
 
     async def discover_models(self) -> tuple[ModelDescriptor, ...]:
-        """Fetch the model catalog and return only explicitly advertised text models.
+        """Fetch the model catalog and return text-capable hosted descriptors.
 
-        Model catalogs differ. The adapter accepts top-level input/output modality
-        fields or the OpenRouter-style architecture.input_modalities/output_modalities
-        fields. Models without explicit text support are not registered by this
-        text-only adapter; they can be handled by a future modality-specific adapter.
+        The adapter accepts top-level modality fields or OpenRouter-style
+        architecture.input_modalities/output_modalities fields. Some providers
+        (such as Moonshot) document a Chat Completions-only model list with
+        context and capability flags but no modality arrays. For those providers,
+        enable catalog_models_support_chat_completions explicitly after reviewing
+        the provider documentation. The default remains strict.
         """
 
         response = await self._request("GET", self._model_list_path)
@@ -173,10 +193,13 @@ class OpenAICompatibleAdapter:
             output_modalities = item.get(
                 "output_modalities", architecture.get("output_modalities")
             )
-            if not self._advertises_text(input_modalities) or not self._advertises_text(
-                output_modalities
-            ):
+            input_is_text = self._supports_text(input_modalities)
+            output_is_text = self._supports_text(output_modalities)
+            if input_is_text is False or output_is_text is False:
                 continue
+            if input_is_text is None or output_is_text is None:
+                if not self._catalog_models_support_chat_completions:
+                    continue
 
             display_name = item.get("name")
             if not isinstance(display_name, str) or not display_name.strip():
@@ -220,7 +243,7 @@ class OpenAICompatibleAdapter:
             "stream": False,
         }
         if request.max_output_tokens is not None:
-            body["max_tokens"] = request.max_output_tokens
+            body[self._max_output_tokens_field] = request.max_output_tokens
         if request.temperature is not None:
             body["temperature"] = request.temperature
 
@@ -342,8 +365,12 @@ class OpenAICompatibleAdapter:
             ) from exc
 
     @staticmethod
-    def _advertises_text(modalities: Any) -> bool:
-        return isinstance(modalities, list) and "text" in modalities
+    def _supports_text(modalities: Any) -> bool | None:
+        if modalities is None:
+            return None
+        if not isinstance(modalities, list):
+            raise ProviderProtocolError("Provider returned invalid modality metadata.")
+        return "text" in modalities
 
     @staticmethod
     def _context_window(item: Mapping[str, Any]) -> int | None:
