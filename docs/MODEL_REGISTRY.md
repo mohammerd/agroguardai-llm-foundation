@@ -13,6 +13,7 @@ The Python package provides:
 - `ModelDescriptor` for exact provider/model IDs, advertised operations, input/output modalities, context-window metadata, availability, and upstream terms-review status.
 - `ModelSelection` for a required provider, exact model ID, and operation.
 - `ModelRegistry` for deterministic registration, listing, and resolution.
+- Provider-catalog identity checks so discovered records cannot be registered under a different provider.
 - Strict YAML selection loading through `load_selection_config` and PyYAML's `safe_load`.
 - An opt-in ordered fallback policy. Fallback is disabled by default; candidates must be explicitly listed and are validated before an executor can use them.
 - A shared `ProviderAdapter` protocol and response-identity validation to reject a provider response that names a different model.
@@ -41,10 +42,12 @@ Each catalog entry should declare verified information where available:
 - display name;
 - supported operations: hosted inference, local inference, fine-tuning, and weight export;
 - supported input/output modalities and context limits;
-- license/terms review status;
-- availability.
+- availability;
+- terms status and evidence.
 
-Additional discovery metadata such as model revision, provider endpoint, model family, catalog timestamp, and terms URL should be recorded by concrete provider integrations as they are implemented. Unknown properties remain unknown; do not invent capabilities or license permissions.
+When terms status is `reviewed` or `restricted`, the current `ModelDescriptor` requires an HTTPS `terms_url` and timezone-aware ISO 8601 `terms_reviewed_at`. A bare status flag is rejected. This is an auditable metadata requirement, not legal advice; maintainers must still assess the actual terms and intended use.
+
+Additional discovery metadata such as immutable model revision, provider endpoint, model family, catalog timestamp, and reviewer/process record should be recorded by concrete provider integrations as they are implemented. Unknown properties remain unknown; do not invent capabilities or license permissions.
 
 Fine-tuning and weight export are rejected unless terms status is reviewed. A model marked restricted is rejected for all operations. Capability declarations must be backed by provider documentation or a local runtime check.
 
