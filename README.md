@@ -8,7 +8,7 @@ AgroGuardAI is not a generic chatbot wrapper. The project combines a governed ag
 
 ## Project status
 
-**Early research infrastructure — not production-ready.** The repository includes a tested model registry, configuration-driven construction of the selected OpenAI-compatible provider adapter, a generic hosted text adapter, and mocked integration tests. No live provider smoke tests, local runtime, training pipeline, dataset release, or agricultural safety enforcement are claimed yet.
+**Early research infrastructure — not production-ready.** The repository includes a tested model registry, configuration-driven provider construction, a hosted model runtime, a generic OpenAI-compatible text adapter, and mocked integration tests. No live provider smoke tests, local runtime, training pipeline, dataset release, or agricultural safety enforcement are claimed yet.
 
 The legacy research repository is `mohammerd/agroguardai-llm`. It remains unchanged as the source archive during migration review.
 
@@ -26,7 +26,7 @@ The legacy research repository is `mohammerd/agroguardai-llm`. It remains unchan
 
 The registry is designed to support multiple providers and model families, including DeepSeek, Qwen, Gemma, Kimi/Moonshot, Llama, OpenAI, Anthropic, and other providers. A model is selectable only after its exact provider/model ID and supported operation have been registered.
 
-The first hosted integration is a generic OpenAI-compatible text adapter. It includes documented catalog handling for DeepSeek and OpenRouter, plus provider-specific modality defaults for Moonshot/Kimi's model-list format. The YAML provider profiles can now be loaded, and the selected compatible adapter can be constructed from the configured base URL and a named environment variable. Mocked fixtures cover the documented response formats; live credentials and per-model smoke tests remain opt-in and have not been claimed as completed. Other protocols require dedicated adapters. See [Provider Adapters](docs/PROVIDER_ADAPTERS.md).
+The first hosted integration is a generic OpenAI-compatible text adapter. It includes documented catalog handling for DeepSeek and OpenRouter, plus provider-specific modality defaults for Moonshot/Kimi's model-list format. The YAML provider profiles can be loaded, and the hosted runtime can discover the selected provider's catalog, resolve the exact configured model, and execute a text request. Mocked fixtures cover the documented response formats; live credentials and per-model smoke tests remain opt-in and have not been claimed as completed. Other protocols require dedicated adapters. See [Provider Adapters](docs/PROVIDER_ADAPTERS.md).
 
 ## Core API: model registry
 
@@ -60,11 +60,11 @@ print(selected.model_id)
 
 This validates metadata and selection. It does not download weights or run local inference.
 
-## Core API: configuration-driven hosted provider
+## Core API: configuration-driven hosted runtime
 
-Copy `configs/models.example.yaml` to your own configuration file. Set the primary `provider` and exact `model_id`; provider credentials are named there, but their values remain in environment variables.
+Copy `configs/models.example.yaml` to `configs/models.yaml`. Set the primary provider and exact model ID. Supply its API key using the environment variable named in that provider's profile.
 
-For example, when selecting DeepSeek:
+For DeepSeek:
 
 ```bash
 export DEEPSEEK_API_KEY="your-key"
@@ -76,39 +76,35 @@ import asyncio
 from agroguardai import (
     ChatMessage,
     GenerationRequest,
-    ModelRegistry,
-    OpenAICompatibleAdapter,
-    build_selected_adapter,
+    HostedModelRuntime,
     load_model_config,
 )
 
 
 async def main():
-    runtime_config = load_model_config("configs/models.yaml")
-    adapter = build_selected_adapter(runtime_config)
-
-    # Refresh the selected provider's catalog and validate the exact model ID.
-    registry = ModelRegistry()
-    registry.register_provider_catalog(adapter.provider_id, await adapter.discover_models())
-    selection = runtime_config.selection.primary
-    registry.resolve(selection)
+    config = load_model_config("configs/models.yaml")
+    runtime = HostedModelRuntime.from_config(config)
 
     request = GenerationRequest(
-        selection=selection,
+        selection=config.selection.primary,
         messages=(
             ChatMessage("user", "What information is needed to diagnose maize leaf blight?"),
         ),
     )
-    response = await adapter.generate(request)
+    response = await runtime.generate(request)
     print(response.output_text)
 
 
 asyncio.run(main())
 ```
 
-Change the YAML selection to another configured provider, such as `moonshot` or `openrouter`, and set that provider's credential environment variable. The factory constructs only the selected provider. It does not load credential values from YAML, choose a model, execute fallback, or claim unimplemented protocols such as `transformers` are supported.
+The runtime discovers the selected provider's catalog on first use, checks that the exact configured model is present and supports hosted inference, then sends the request. It caches the validated catalog for subsequent requests. A caller can explicitly refresh it with `await runtime.refresh_catalog()`.
 
-The example uses hosted APIs and may incur provider charges. The generic adapter is text-only; image/video support indicated by upstream model catalogs is not exposed by this adapter.
+The runtime accepts only the exact provider/model/operation in the loaded configuration. It rejects a mismatched response. It does not retry or switch models. Fallback configuration is validated by the configuration layer, but this runtime currently rejects enabled fallback until an explicit fallback executor is implemented.
+
+Change the YAML selection to another configured provider, such as `moonshot` or `openrouter`, and set that provider's credential environment variable. Only the selected provider adapter is constructed. The Hugging Face `transformers` profile is a future local-runtime example and is not currently executable.
+
+The example uses a hosted API and may incur provider charges. The generic adapter is text-only; image/video support indicated by upstream model catalogs is not exposed by this adapter.
 
 ## Core API: direct provider construction
 
@@ -146,7 +142,7 @@ Provider-specific modality defaults apply only when the upstream model catalog o
 
 ## Repository layout
 
-- `src/agroguardai/` — typed model contracts, registry, provider config loader, and provider adapters.
+- `src/agroguardai/` — typed model contracts, registry, provider config loader, hosted runtime, and adapters.
 - `configs/` — example model and experiment configurations.
 - `data/` — schemas, source metadata, and annotation guidance; no legacy dataset is released yet.
 - `docs/` — architecture, governance, provider, and research documentation.
