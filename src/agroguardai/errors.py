@@ -17,8 +17,12 @@ class DuplicateModelError(RegistryError):
     """Raised when a provider/model identifier is registered more than once."""
 
 
+class ProviderIdentityMismatchError(RegistryError):
+    """Raised when catalog records do not match the provider that supplied them."""
+
+
 class UnknownProviderError(RegistryError):
-    """Raised when a selection names a provider with no registered models."""
+    """Raised when a selection names a provider with no registered catalog."""
 
 
 class UnknownModelError(RegistryError):
