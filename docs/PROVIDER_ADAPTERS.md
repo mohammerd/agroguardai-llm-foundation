@@ -42,6 +42,8 @@ export DEEPSEEK_API_KEY="your-key"
 ```
 
 ```python
+import asyncio
+
 from agroguardai import (
     ChatMessage,
     GenerationRequest,
@@ -51,38 +53,43 @@ from agroguardai import (
     Operation,
 )
 
-adapter = OpenAICompatibleAdapter.from_env(
-    api_key_env="DEEPSEEK_API_KEY",
-    provider_id="deepseek",
-    base_url="https://api.deepseek.com",
-)
 
-# Refresh catalog metadata from the provider.
-catalog = await adapter.discover_models()
+async def main():
+    adapter = OpenAICompatibleAdapter.from_env(
+        api_key_env="DEEPSEEK_API_KEY",
+        provider_id="deepseek",
+        base_url="https://api.deepseek.com",
+    )
 
-registry = ModelRegistry()
-registry.register_provider_catalog(adapter.provider_id, catalog)
+    # Refresh catalog metadata from the provider.
+    catalog = await adapter.discover_models()
+    registry = ModelRegistry()
+    registry.register_provider_catalog(adapter.provider_id, catalog)
 
-# The application must obtain this exact model ID from the user's selection.
-selected_model_id = "deepseek-flash"
-selection = ModelSelection(
-    provider_id="deepseek",
-    model_id=selected_model_id,
-    operation=Operation.HOSTED_INFERENCE,
-)
-registry.resolve(selection)
+    # The application should pass this exact ID from the user's model selector.
+    selected_model_id = "deepseek-flash"
+    selection = ModelSelection(
+        provider_id="deepseek",
+        model_id=selected_model_id,
+        operation=Operation.HOSTED_INFERENCE,
+    )
+    registry.resolve(selection)
 
-request = GenerationRequest(
-    selection=selection,
-    messages=(
-        ChatMessage("user", "What information is needed to diagnose maize leaf blight?"),
-    ),
-)
-response = await adapter.generate(request)
-print(response.output_text)
+    request = GenerationRequest(
+        selection=selection,
+        messages=(
+            ChatMessage("user", "What information is needed to diagnose maize leaf blight?"),
+        ),
+    )
+    response = await adapter.generate(request)
+    print(response.output_text)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-The example assumes a Python async context. The example model ID is illustrative; use the exact current ID returned by discovery or selected by the user, and do not assume that a provider alias is immutable.
+The example model ID is illustrative; use the exact current ID returned by discovery or selected by the user, and do not assume that a provider alias is immutable.
 
 ## Example: OpenRouter
 
