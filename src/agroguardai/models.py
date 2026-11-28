@@ -7,8 +7,10 @@ Provider adapters must implement the shared protocol in :mod:`agroguardai.provid
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Iterable
+from urllib.parse import urlparse
 
 from .errors import ConfigurationError, ProviderResponseMismatchError
 
@@ -71,6 +73,24 @@ def _enum_values(
         raise ConfigurationError(f"{field_name} must contain values from: {allowed}.") from exc
 
 
+def _validate_terms_evidence(terms_url: str | None, reviewed_at: str | None) -> None:
+    if terms_url is None or reviewed_at is None:
+        raise ConfigurationError(
+            "A reviewed or restricted model must include terms_url and terms_reviewed_at."
+        )
+    parsed_url = urlparse(terms_url)
+    if parsed_url.scheme != "https" or not parsed_url.netloc:
+        raise ConfigurationError("terms_url must be an absolute HTTPS URL.")
+    if not isinstance(reviewed_at, str):
+        raise ConfigurationError("terms_reviewed_at must be an ISO 8601 timestamp.")
+    try:
+        timestamp = datetime.fromisoformat(reviewed_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ConfigurationError("terms_reviewed_at must be a valid ISO 8601 timestamp.") from exc
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ConfigurationError("terms_reviewed_at must include a timezone offset.")
+
+
 @dataclass(frozen=True, slots=True)
 class ModelDescriptor:
     """Verified metadata for one exact provider/model identifier.
@@ -88,6 +108,8 @@ class ModelDescriptor:
     output_modalities: frozenset[Modality] = frozenset({Modality.TEXT})
     context_window: int | None = None
     terms_status: TermsStatus = TermsStatus.UNREVIEWED
+    terms_url: str | None = None
+    terms_reviewed_at: str | None = None
     available: bool = True
 
     def __post_init__(self) -> None:
@@ -117,6 +139,17 @@ class ModelDescriptor:
             allowed = ", ".join(item.value for item in TermsStatus)
             raise ConfigurationError(f"terms_status must be one of: {allowed}.") from exc
         object.__setattr__(self, "terms_status", terms_status)
+
+        if terms_status in {TermsStatus.REVIEWED, TermsStatus.RESTRICTED}:
+            _validate_terms_evidence(self.terms_url, self.terms_reviewed_at)
+        elif self.terms_reviewed_at is not None:
+            raise ConfigurationError(
+                "terms_reviewed_at must be omitted while terms_status is 'unreviewed'."
+            )
+        elif self.terms_url is not None and (
+            not isinstance(self.terms_url, str) or not self.terms_url.strip()
+        ):
+            raise ConfigurationError("terms_url must be a non-empty HTTPS URL or None.")
 
         if self.context_window is not None and (
             isinstance(self.context_window, bool)
@@ -171,7 +204,7 @@ class ModelSelection:
 
 @dataclass(frozen=True, slots=True)
 class ChatMessage:
-    """One text message for the initial inference contract."""
+    """One text message for the initial text-generation contract."""
 
     role: MessageRole
     content: str
