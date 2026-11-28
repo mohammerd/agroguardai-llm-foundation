@@ -1,8 +1,8 @@
 from agroguardai import (
     OpenAICompatibleAdapter,
+    __version__,
     build_selected_adapter,
     load_model_config,
-    __version__,
 )
 
 
