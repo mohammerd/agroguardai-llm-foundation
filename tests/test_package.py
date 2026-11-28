@@ -1,9 +1,16 @@
-from agroguardai import OpenAICompatibleAdapter, __version__
+from agroguardai import (
+    OpenAICompatibleAdapter,
+    build_selected_adapter,
+    load_model_config,
+    __version__,
+)
 
 
 def test_package_version_is_defined():
-    assert __version__ == "0.3.1"
+    assert __version__ == "0.4.0"
 
 
-def test_generic_hosted_adapter_is_public():
+def test_public_api_exports_provider_adapter_and_config_loader():
     assert OpenAICompatibleAdapter.__name__ == "OpenAICompatibleAdapter"
+    assert callable(build_selected_adapter)
+    assert callable(load_model_config)
