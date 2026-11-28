@@ -49,7 +49,7 @@ class ModelRegistry:
             raise DuplicateModelError("The model batch contains duplicate provider/model IDs.")
         duplicate_keys = set(self._models).intersection(keys)
         if duplicate_keys:
-            provider_id, model_id = sorted(duplicate_keys)[0]
+            provider_id, model_id = min(duplicate_keys)
             raise DuplicateModelError(f"Model {provider_id}/{model_id} is already registered.")
 
         # Validation completes before any registry state is mutated.
