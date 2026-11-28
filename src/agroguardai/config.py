@@ -9,9 +9,8 @@ from typing import Any
 import yaml
 
 from .errors import ConfigurationError
-from .models import ModelSelection, Operation
+from .models import ModelDescriptor, ModelSelection
 from .registry import ModelRegistry
-from .models import ModelDescriptor
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,12 +21,14 @@ class FallbackModel:
     model_id: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.provider_id, str) or not self.provider_id.strip():
-            raise ConfigurationError("Fallback provider must be a non-empty string.")
-        if not isinstance(self.model_id, str) or not self.model_id.strip():
-            raise ConfigurationError("Fallback model_id must be a non-empty string.")
-        if any(character.isspace() for character in self.provider_id + self.model_id):
-            raise ConfigurationError("Fallback provider and model_id must not contain whitespace.")
+        for field_name in ("provider_id", "model_id"):
+            value = getattr(self, field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigurationError(f"Fallback {field_name} must be a non-empty string.")
+            if value != value.strip() or any(character.isspace() for character in value):
+                raise ConfigurationError(
+                    f"Fallback {field_name} must not contain whitespace."
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,10 +55,12 @@ class SelectionConfig:
         keys = [(item.provider_id, item.model_id) for item in self.ordered_fallbacks]
         primary_key = (self.primary.provider_id, self.primary.model_id)
         if primary_key in keys or len(keys) != len(set(keys)):
-            raise ConfigurationError("Fallback candidates must be unique and cannot repeat the primary model.")
+            raise ConfigurationError(
+                "Fallback candidates must be unique and cannot repeat the primary model."
+            )
 
     def resolve_candidates(self, registry: ModelRegistry) -> tuple[ModelDescriptor, ...]:
-        """Validate the full explicit candidate order before execution.
+        """Validate the explicit candidate order before execution.
 
         This method does not execute candidates or perform fallback. A future
         execution layer may use the returned order only when the user enabled it.
@@ -79,6 +82,8 @@ class SelectionConfig:
 def _expect_mapping(value: Any, field_name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ConfigurationError(f"'{field_name}' must be a YAML mapping.")
+    if any(not isinstance(key, str) for key in value):
+        raise ConfigurationError(f"'{field_name}' field names must be strings.")
     return value
 
 
@@ -95,6 +100,8 @@ def selection_config_from_mapping(document: dict[str, Any]) -> SelectionConfig:
     _reject_unknown_keys(root, {"selection", "providers"}, "document")
     if "selection" not in root:
         raise ConfigurationError("Configuration is missing the required 'selection' section.")
+    if "providers" in root:
+        _expect_mapping(root["providers"], "providers")
 
     selection_values = _expect_mapping(root["selection"], "selection")
     _reject_unknown_keys(
