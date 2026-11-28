@@ -15,6 +15,54 @@ The package includes a generic OpenAI-compatible hosted adapter. It supports the
 
 The adapter does not implement streaming, tool calls, image/audio/video input, embeddings, local inference, fine-tuning, or weight export. Those capabilities must use separate, tested adapters and operation contracts.
 
+## Configuration-driven construction
+
+Provider configuration can be loaded from YAML and the selected provider adapter can be constructed without hard-coding its endpoint in application code.
+
+Copy `configs/models.example.yaml` to a working config, set the selected provider and exact model ID, then provide that provider's key through the named environment variable:
+
+```bash
+export DEEPSEEK_API_KEY="your-key"
+```
+
+```python
+import asyncio
+
+from agroguardai import (
+    ChatMessage,
+    GenerationRequest,
+    ModelRegistry,
+    build_selected_adapter,
+    load_model_config,
+)
+
+
+async def main():
+    config = load_model_config("configs/models.yaml")
+    adapter = build_selected_adapter(config)
+
+    registry = ModelRegistry()
+    registry.register_provider_catalog(adapter.provider_id, await adapter.discover_models())
+    selection = config.selection.primary
+    registry.resolve(selection)
+
+    response = await adapter.generate(
+        GenerationRequest(
+            selection=selection,
+            messages=(ChatMessage("user", "What are common maize leaf blight symptoms?"),),
+        )
+    )
+    print(response.output_text)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+The factory builds only the selected provider. It resolves credential values from the process environment (or an explicitly supplied environment mapping for tests), not from YAML. It does not automatically discover models, resolve the model ID, execute a request, perform fallback, or apply agricultural safety controls; those steps remain explicit.
+
+Only `openai-compatible` is currently supported by the factory. A documented but unimplemented protocol such as `transformers` can remain in an unselected provider profile; selecting it raises a clear unsupported-protocol error. The factory also rejects unknown fields in the selected provider profile. Fallback candidates must each have a corresponding provider profile, but fallback execution is not implemented.
+
 ## Verified example endpoints
 
 The following endpoints are documented by their providers and can be configured with this adapter's expected routes:
@@ -23,7 +71,7 @@ The following endpoints are documented by their providers and can be configured 
 |---|---|---|---|---|
 | DeepSeek | `https://api.deepseek.com` | `models` | `chat/completions` | Explicit input/output modality arrays |
 | OpenRouter | `https://openrouter.ai/api/v1` | `models` | `chat/completions` | Modality arrays under `architecture` |
-| Moonshot / Kimi API | `https://api.moonshot.ai/v1` | `models` | `chat/completions` | Catalog exposes context length and input feature flags; text defaults must be explicitly configured |
+| Moonshot / Kimi API | `https://api.moonshot.ai/v1` | `models` | `chat/completions` | Catalog exposes context length and feature flags; text defaults must be explicitly configured |
 
 Provider documentation:
 
@@ -32,9 +80,8 @@ Provider documentation:
 - [DeepSeek: model names and API base URLs](https://api-docs.deepseek.com/quick_start/pricing/)
 - [OpenRouter: model catalog](https://openrouter.ai/docs/api/api-reference/models/get-models)
 - [OpenRouter: make a chat-completions request](https://learn.openrouter.ai/courses/first-request/make-a-request)
-- [Moonshot / Kimi: list models](https://aelkimi.com/list-models.html)
-- [Moonshot / Kimi: API platform FAQ and regional endpoints](https://www.aelkimi.com/faq-2.html)
-- [Kimi: OpenAI-compatible API quickstart](https://www.kimi.ai/resources/model-api)
+- [Kimi API Platform: list models](https://platform.kimi.ai/docs/api/list-models)
+- [Kimi API Platform: quickstart and chat-completions compatibility](https://platform.kimi.ai/docs/get-your-api-key)
 
 This is endpoint documentation, not a claim that AgroGuardAI has tested every model listed by those services. Mocked integration tests exercise representative documented response shapes. Live credentials and provider-specific smoke tests remain opt-in and have not been claimed as completed.
 
@@ -129,7 +176,7 @@ adapter = OpenAICompatibleAdapter.from_env(
 )
 ```
 
-Use the regional endpoint and credential pair that belongs to the user's Kimi/Moonshot account. The international endpoint above is not interchangeable with the mainland China platform. Use the exact model ID returned by that account's model-list endpoint.
+Use the endpoint and credential pair for the same Kimi/Moonshot account. The example uses the international API endpoint. Model availability and capabilities are returned by the account's model-list endpoint.
 
 ## Security and behavior guarantees
 
