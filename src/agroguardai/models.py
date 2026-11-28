@@ -74,7 +74,7 @@ def _enum_values(
 
 
 def _validate_terms_evidence(terms_url: str | None, reviewed_at: str | None) -> None:
-    if terms_url is None or reviewed_at is None:
+    if not isinstance(terms_url, str) or not terms_url.strip() or reviewed_at is None:
         raise ConfigurationError(
             "A reviewed or restricted model must include terms_url and terms_reviewed_at."
         )
@@ -142,14 +142,19 @@ class ModelDescriptor:
 
         if terms_status in {TermsStatus.REVIEWED, TermsStatus.RESTRICTED}:
             _validate_terms_evidence(self.terms_url, self.terms_reviewed_at)
-        elif self.terms_reviewed_at is not None:
-            raise ConfigurationError(
-                "terms_reviewed_at must be omitted while terms_status is 'unreviewed'."
-            )
-        elif self.terms_url is not None and (
-            not isinstance(self.terms_url, str) or not self.terms_url.strip()
-        ):
-            raise ConfigurationError("terms_url must be a non-empty HTTPS URL or None.")
+        else:
+            if self.terms_reviewed_at is not None:
+                raise ConfigurationError(
+                    "terms_reviewed_at must be omitted while terms_status is 'unreviewed'."
+                )
+            if self.terms_url is not None:
+                parsed_url = urlparse(self.terms_url) if isinstance(self.terms_url, str) else None
+                if (
+                    parsed_url is None
+                    or parsed_url.scheme != "https"
+                    or not parsed_url.netloc
+                ):
+                    raise ConfigurationError("terms_url must be an absolute HTTPS URL or None.")
 
         if self.context_window is not None and (
             isinstance(self.context_window, bool)
