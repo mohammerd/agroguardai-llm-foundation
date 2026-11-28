@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
 
-from .errors import ConfigurationError
+from .errors import ConfigurationError, ProviderResponseMismatchError
 
 
 class Operation(str, Enum):
@@ -57,7 +57,13 @@ def _require_identifier(value: str, field_name: str) -> str:
     return value
 
 
-def _enum_values(values: Iterable[Enum | str], enum_type: type[Enum], field_name: str) -> frozenset:
+def _enum_values(
+    values: Iterable[Enum | str] | Enum | str,
+    enum_type: type[Enum],
+    field_name: str,
+) -> frozenset:
+    if isinstance(values, (str, Enum)):
+        values = (values,)
     try:
         return frozenset(enum_type(value) for value in values)
     except (TypeError, ValueError) as exc:
@@ -107,7 +113,7 @@ class ModelDescriptor:
 
         try:
             terms_status = TermsStatus(self.terms_status)
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             allowed = ", ".join(item.value for item in TermsStatus)
             raise ConfigurationError(f"terms_status must be one of: {allowed}.") from exc
         object.__setattr__(self, "terms_status", terms_status)
@@ -135,7 +141,7 @@ class ModelSelection:
         _require_identifier(self.model_id, "model_id")
         try:
             object.__setattr__(self, "operation", Operation(self.operation))
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             allowed = ", ".join(item.value for item in Operation)
             raise ConfigurationError(f"operation must be one of: {allowed}.") from exc
 
@@ -145,11 +151,15 @@ class ModelSelection:
 
         if not isinstance(values, dict):
             raise ConfigurationError("Model selection must be a mapping.")
+        if any(not isinstance(key, str) for key in values):
+            raise ConfigurationError("Model selection field names must be strings.")
         required = {"provider", "model_id", "operation"}
         missing = required - values.keys()
         unknown = values.keys() - required
         if missing:
-            raise ConfigurationError(f"Model selection is missing required fields: {sorted(missing)}.")
+            raise ConfigurationError(
+                f"Model selection is missing required fields: {sorted(missing)}."
+            )
         if unknown:
             raise ConfigurationError(f"Unknown model-selection fields: {sorted(unknown)}.")
         return cls(
@@ -169,7 +179,7 @@ class ChatMessage:
     def __post_init__(self) -> None:
         try:
             object.__setattr__(self, "role", MessageRole(self.role))
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             allowed = ", ".join(item.value for item in MessageRole)
             raise ConfigurationError(f"role must be one of: {allowed}.") from exc
         if not isinstance(self.content, str) or not self.content.strip():
@@ -186,9 +196,11 @@ class GenerationRequest:
     temperature: float | None = None
 
     def __post_init__(self) -> None:
-        if not self.messages:
-            raise ConfigurationError("At least one message is required.")
-        if not any(message.role is MessageRole.USER for message in self.messages):
+        messages = tuple(self.messages)
+        if not messages or any(not isinstance(message, ChatMessage) for message in messages):
+            raise ConfigurationError("messages must contain one or more ChatMessage objects.")
+        object.__setattr__(self, "messages", messages)
+        if not any(message.role is MessageRole.USER for message in messages):
             raise ConfigurationError("A generation request must contain a user message.")
         if self.max_output_tokens is not None and (
             isinstance(self.max_output_tokens, bool)
@@ -236,8 +248,6 @@ def validate_provider_response(
 
     selected = request.selection
     if (response.provider_id, response.model_id) != (selected.provider_id, selected.model_id):
-        from .errors import ProviderResponseMismatchError
-
         raise ProviderResponseMismatchError(
             "Provider returned "
             f"{response.provider_id}/{response.model_id}, but the request selected "
